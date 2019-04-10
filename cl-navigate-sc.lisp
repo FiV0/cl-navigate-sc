@@ -132,6 +132,51 @@
                    :end-line (car end-line-column)
                    :end (cdr end-line-column))))
 
+(defclass unknown-symbol ()
+  ((package-name :initarg :package-name
+                 :reader unknown-symbol-package-name
+                 :documentation "The name of the package of the symbol.")
+   (symbol-name :initarg :symbol-name
+                :reader unknown-symbol-symbol-name
+                :documentation "The name of the symbol.")))
+
+
+(defparameter temporary-package (make-package 'temporary))
+
+(defmethod eclector.reader:interpret-symbol
+  ((client symbol-location-client) input-stream (package-indicator nil)
+                                   symbol-name internp)
+  (intern symbol-name temporary-package))
+
+;; mainly copied from Eclector by Robert Strandh
+(defmethod eclector.reader:interpret-symbol
+  ((client symbol-location-client) input-stream package-indicator
+                                   symbol-name internp)
+  (let ((package (case package-indicator
+                   (:current *package*)
+                   (:keyword (find-package "KEYWORD"))
+                   (t        (or (find-package package-indicator)
+                                 ;; TODO add some information here that I
+                                 ;; created the package
+                                 (make-package package-indicator)
+                                 (%reader-error
+                                  input-stream 'package-does-not-exist
+                                  :package-name package-indicator))))))
+    (if internp
+        (intern symbol-name package)
+        (multiple-value-bind (symbol status)
+            (find-symbol symbol-name package)
+          (cond ((null status)
+                 symbol
+                 ;(%reader-error input-stream 'symbol-does-not-exist
+                                ;:package package
+                                ;:symbol-name symbol-name))
+                ((eq status :internal)
+                 symbol
+                 ;(%reader-error input-stream 'symbol-is-not-external
+                                ;:package package
+                                ;:symbol-name symbol-name))
+                (t symbol))))))
 
 #+(or)
 (defparameter program "(1 #|comment|# ;;test
@@ -139,7 +184,9 @@
 #+(or)
 (defparameter program2 "(let ((a '#1=(10 . #1#))) (nth 42 a))")
 #+(or)
-(with-input-from-string (is program)
+(defparameter program3 "(hihi '(1 (2 3) 4))")
+#+(or)
+(with-input-from-string (is program3)
   (eclector.parse-result:read
     (make-instance 'symbol-location-client
                    :file-position-to-file-location
@@ -158,5 +205,6 @@
            while (not (equal eof object))
            collect object))))
 
-(with-open-file (st filepath2)
-  (read-program st))
+(defun parse-from-file (filepath)
+  (with-open-file (st filepath)
+    (read-program st)))
