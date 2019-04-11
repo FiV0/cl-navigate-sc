@@ -55,9 +55,6 @@
 (with-open-file (is filepath)
   (calculate-line-breaks is))
 
-(with-input-from-string (is program2)
-  (calculate-line-breaks is))
-
 (defun find-if-consecutive (fn lst)
   "Applies FN on consecutive pairs of LST and returns the first element,
    position in LST if FN returns true (generilized boolean) and nil, nil
@@ -132,51 +129,72 @@
                    :end-line (car end-line-column)
                    :end (cdr end-line-column))))
 
-(defclass unknown-symbol ()
-  ((package-name :initarg :package-name
-                 :reader unknown-symbol-package-name
-                 :documentation "The name of the package of the symbol.")
-   (symbol-name :initarg :symbol-name
-                :reader unknown-symbol-symbol-name
-                :documentation "The name of the symbol.")))
+(defclass symbol-information ()
+  ((symbol :initarg :symbol
+           :accessor symbol-information-symbol
+           :documentation "The symbol value.")
+   (error :initarg :error
+          :accessor symbol-information-error
+          :documentation "T if no error. One of the following otherwise:
+                          'package-does-not-exist
+                          'symbol-does-not-exist
+                          'symbol-is-not-external")))
 
+(defun symbol-information-p (symbol-information)
+  (eq (type-of symbol-information) 'symbol-information))
 
-(defparameter temporary-package (make-package 'temporary))
+(defun make-symbol-information (symbol &optional (error T))
+  (make-instance 'symbol-information
+                 :symbol symbol
+                 :error error))
+
+(defparameter *temporary-package* (make-package 'temporary))
 
 (defmethod eclector.reader:interpret-symbol
-  ((client symbol-location-client) input-stream (package-indicator nil)
+  ((client symbol-location-client) input-stream (package-indicator null)
                                    symbol-name internp)
-  (intern symbol-name temporary-package))
+  (intern symbol-name *temporary-package*))
 
 ;; mainly copied from Eclector by Robert Strandh
 (defmethod eclector.reader:interpret-symbol
   ((client symbol-location-client) input-stream package-indicator
                                    symbol-name internp)
-  (let ((package (case package-indicator
-                   (:current *package*)
-                   (:keyword (find-package "KEYWORD"))
-                   (t        (or (find-package package-indicator)
-                                 ;; TODO add some information here that I
-                                 ;; created the package
-                                 (make-package package-indicator)
-                                 (%reader-error
-                                  input-stream 'package-does-not-exist
-                                  :package-name package-indicator))))))
-    (if internp
-        (intern symbol-name package)
+  (declare (ignore internp))
+  (let* ((package-non-existant nil)
+         (package (case package-indicator
+                    (:current *package*)
+                    (:keyword (find-package "KEYWORD"))
+                    (t        (or (find-package package-indicator)
+                                  (progn
+                                    (setf package-non-existant T)
+                                    (make-package package-indicator))
+                                  ;; Should not happen
+                                  (eclector.reader::%reader-error
+                                    input-stream 'package-does-not-exist
+                                    :package-name package-indicator))))))
+    (if package-non-existant
+        (make-symbol-information (intern symbol-name package)
+                                 'package-does-not-exist)
         (multiple-value-bind (symbol status)
-            (find-symbol symbol-name package)
+          (find-symbol symbol-name package)
           (cond ((null status)
-                 symbol
-                 ;(%reader-error input-stream 'symbol-does-not-exist
-                                ;:package package
-                                ;:symbol-name symbol-name))
-                ((eq status :internal)
-                 symbol
-                 ;(%reader-error input-stream 'symbol-is-not-external
-                                ;:package package
-                                ;:symbol-name symbol-name))
-                (t symbol))))))
+                 (make-symbol-information (intern symbol-name package)
+                                          'symbol-does-not-exist))
+                 ((eq status :internal)
+                  (make-symbol-information symbol
+                                           'symbol-is-not-external))
+
+                 (t (make-symbol-information symbol)))))))
+
+(define-condition feature-expression-malformed () ())
+
+(defmethod eclector.reader:check-feature-expression
+  ((client symbol-location-client) (feature-expression t))
+  (declare (ignore client))
+  (unless (or (symbol-information-p feature-expression)
+              (and (consp feature-expression) (every #'symbol-information-p
+                                                     feature-expression)))
+    (error 'feature-expression-malformed)))
 
 #+(or)
 (defparameter program "(1 #|comment|# ;;test
@@ -184,7 +202,15 @@
 #+(or)
 (defparameter program2 "(let ((a '#1=(10 . #1#))) (nth 42 a))")
 #+(or)
-(defparameter program3 "(hihi '(1 (2 3) 4))")
+(defparameter program3 "(flatten '(1 (2 3) 4))")
+
+#+(or)
+(find-method #'eclector.reader:interpret-symbol '()
+             (mapcar #'find-class '(symbol-location-client T T T T)))
+
+#+(or)
+(remove-method #'eclector.reader:interpret-symbol *)
+
 #+(or)
 (with-input-from-string (is program3)
   (eclector.parse-result:read
@@ -208,3 +234,6 @@
 (defun parse-from-file (filepath)
   (with-open-file (st filepath)
     (read-program st)))
+
+#+(or)
+(parse-from-file filepath2)
