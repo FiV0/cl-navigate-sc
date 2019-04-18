@@ -13,4 +13,5 @@
 Unit tests package."
   :components ((:file "cl-navigate-sc-test"))
   :depends-on (:cl-navigate-sc :parachute)
-  :perform (asdf:test-op (op c) (uiop:symbol-call :cl-navigate-sc-test :run-test)))
+  :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test
+                                                  :cl-navigate-sc-test)))

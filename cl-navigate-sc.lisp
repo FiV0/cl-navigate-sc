@@ -58,11 +58,26 @@
   "Returns True if the cst is special symbol."
   (special-operator-p (cst:raw cst)))
 
+#|
+ List of special forms:
+   block      let*                  return-from
+   catch      load-time-value       setq
+   eval-when  locally               symbol-macrolet
+   flet       macrolet              tagbody
+   function   multiple-value-call   the
+   go         multiple-value-prog1  throw
+   if         progn                 unwind-protect
+   labels     progv
+   let        quote
+|#
+
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
   (let ((first (cst:first cst)))
     (cond ((or (eq (cst:raw first) 'let) (eq (cst:raw first) 'let*))
            (process-let-bindings cst env))
+          ((or (eq (cst:raw first) 'flet) (eq (cst:raw first) 'labels))
+           (process-local-functions cst env))
           (T (error 'not-yet-implemented)))))
 
 (defun standard-symbol-p (cst)
@@ -127,17 +142,44 @@
 (define-condition binding-error ()
   ())
 
+(defun process-function-binding (cst env)
+  "Processes one binding of the form (name (lambda-list) body)."
+  (let ((name (cst:first cst))
+        (lambda-list (cst:second cst))
+        (body (cst:third cst)))
+    (multiple-value-bind (srefs1 new-env1)
+      (add-symbol-to-env name env #'add-function-to-env)
+      (multiple-value-bind (srefs2 new-env2)
+        (add-symbols-to-env (cst-to-list lambda-list) env)
+        (multiple-value-bind (srefs3 new-env3)
+          (parse-csts (cst-to-list body) new-env2)
+          (declare (ignore new-env3))
+          ;; TODO take care of special symbols
+          (values (append srefs1 srefs2 srefs3) new-env1))))))
+
 (defun process-binding (cst env &optional
                             (add-env-function #'add-variable-to-env))
-  "Prcessess one binding of the form (binding form)."
+  "Processess one binding of the form (binding form)."
   (let ((binding-cst (cst:first cst))
         (form-cst (cst:first (cst:rest cst))))
     ;; TODO add global special stuff from form
-    (multiple-value-bind (sref newenv1)
+    (multiple-value-bind (sref new-env1)
       (add-symbol-to-env binding-cst env add-env-function)
-      (multiple-value-bind (srefs newenv2) (parse-cst form-cst env)
-        (declare (ignore newenv2))
-        (values (append sref srefs) newenv1)))))
+      (multiple-value-bind (srefs new-env2) (parse-cst form-cst env)
+        (declare (ignore new-env2))
+        (values (append sref srefs) new-env1)))))
+
+(defun process-function-bindings (csts env &optional (recursive nil))
+  "Process a list of function bindings."
+  (flet ((helper (refs-env cst)
+           (multiple-value-bind (refs new-env)
+             (process-function-binding cst (cdr refs-env))
+             (cons (append (car refs-env) refs)
+                   (if recursive
+                       new-env
+                       env)))))
+    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
+      (values (car res) (cdr res)))))
 
 (defun process-bindings (csts env &optional (recursive nil))
   "Processes a list of binding csts."
@@ -150,6 +192,21 @@
                        env)))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
+
+(defun process-flet-bindings (cst env)
+  "Process a flet/labels."
+  (let* ((type-form (cst:first cst))
+         (recursive (eq (cst:raw type-form) 'labels))
+         (bindings (cst-to-list (cst:second cst)))
+         (forms (cst-to-list (resti cst 2))))
+    (multiple-value-bind (refs1 env1) (parse-atom type-form env)
+      (declare (ignore env1))
+      (multiple-value-bind (refs2 env2) (process-function-bindings bindings env
+                                                                   recursive)
+        ;; TODO add global special
+        (multiple-value-bind (refs3 env3) (parse-csts forms env2)
+          (declare (ignore env3))
+          (values (append refs1 refs2 refs3) env))))))
 
 (defun process-let-bindings (cst env)
   "Process a let/let*."

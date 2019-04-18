@@ -1,8 +1,12 @@
-;;;; cl-navigate-sc.asd
+#|
+  This file is a part of cl-navigate-sc.
+  (c) 2019 fiv0
+  Author: Finn Völkel <firstname.lastname@gmail.com>
+|#
 
 (asdf:defsystem #:cl-navigate-sc
   :description "A library for extracting source code information from CL files."
-  :author "fiv0"
+  :author "Finn Völkel <firstname.lastname@gmail.com>"
   :license  "MIT Licence"
   :version "0.0.1"
   :serial t
@@ -15,4 +19,5 @@
                (:file "utils")
                (:file "file-location-read")
                (:file "environment")
-               (:file "cl-navigate-sc")))
+               (:file "cl-navigate-sc"))
+  :in-order-to ((asdf:test-op (asdf:test-op :cl-navigate-sc-test))))

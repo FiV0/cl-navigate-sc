@@ -5,7 +5,7 @@
 |#
 
 (in-package #:cl-user)
-(defpackage #:cl-navigate-sc.test
+(defpackage #:cl-navigate-sc-test
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
   (:import-from #:cl-navigate-sc
@@ -15,9 +15,9 @@
                 #:file-location-end
                 #:source-reference-parent
                 #:symbol-information-symbol)
-  (:export #:cl-navigate-sc.test))
+  (:export #:cl-navigate-sc-test))
 
-(in-package #:cl-navigate-sc.test)
+(in-package #:cl-navigate-sc-test)
 
 
 ;;Working with hunchentoot as an example. The request.lisp file below is from
@@ -44,7 +44,7 @@
    (= 3)))
 
 (define-test file-position-to-location
-  :depends-on (test-find-if-consecutive)
+  :depends-on (find-if-consecutive)
   (let* ((res (file-position-to-location 69 '(1 45)))
          (line (car res))
          (column (cdr res)))
@@ -52,7 +52,7 @@
     (is = 24 column)))
 
 (define-test create-file-position-to-file-location-function
-  :depends-on (test-calculate-line-breaks test-file-position-to-location)
+  :depends-on (calculate-line-breaks file-position-to-location)
   (let* ((res (with-open-file (is filepath)
                (let ((fn (create-file-position-to-file-location-function is)))
                  (funcall fn 209))))
@@ -96,11 +96,14 @@
 
 ;; cl-navigate-sc.lisp testing
 
+(defun read-one-cst (string)
+  (with-input-from-string (is string)
+    (car (read-program is))))
+
 (defvar program2 "(list 1 2 3)")
 
 (define-test parse-cst-simple
-  (let* ((cst (with-input-from-string (is program2)
-                (car (read-program is))))
+  (let* ((cst (read-one-cst program2))
          (res (parse-cst cst (empty-environment)))
          (list-ref (car res)))
     (is #'eq 'list (symbol-information-symbol list-ref))
@@ -115,8 +118,7 @@
 
 (define-test parse-let
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (with-input-from-string (is program3)
-                (car (read-program is))))
+  (let* ((cst (read-one-cst program3))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -133,8 +135,7 @@
 
 (define-test parse-let*
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (with-input-from-string (is program4)
-                (car (read-program is))))
+  (let* ((cst (read-one-cst program4))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -144,3 +145,20 @@
          (sr-print-y (nth 5 res)))
     (is #'eq sr-x (source-reference-parent sr-form-x))
     (is #'eq sr-y (source-reference-parent sr-print-y))))
+
+(defvar program5 "(flet ((id (x) x)
+                         (id2 (x) x))
+                    (id 1))")
+
+;(define-test parse-let*
+  ;:depends-on (parse-cst-simple eclector-read)
+  ;(let* ((cst (read-one-cst program5))
+         ;(res (parse-cst cst (empty-environment)))
+         ;;; TODO this is a bad setup as it makes assumptions about the
+         ;;; order of the source references
+         ;(sr-x (nth 1 res))
+         ;(sr-form-x (nth 3 res))
+         ;(sr-y (nth 2 res))
+         ;(sr-print-y (nth 5 res)))
+    ;(is #'eq sr-x (source-reference-parent sr-form-x))
+    ;(is #'eq sr-y (source-reference-parent sr-print-y))))
