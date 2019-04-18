@@ -120,9 +120,27 @@
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
-         (sr-x (cadr res))
+         (sr-x (nth 1 res))
          (sr-print-x (nth 4 res))
          (sr-y (nth 2 res))
          (sr-list-y (nth 7 res)))
     (is #'eq sr-x (source-reference-parent sr-print-x))
     (is #'eq sr-y (source-reference-parent sr-list-y))))
+
+(defvar program4 "(let* ((x 1)
+                         (y x))
+                    (print y))")
+
+(define-test parse-let*
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (with-input-from-string (is program4)
+                (car (read-program is))))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-x (nth 1 res))
+         (sr-form-x (nth 3 res))
+         (sr-y (nth 2 res))
+         (sr-print-y (nth 5 res)))
+    (is #'eq sr-x (source-reference-parent sr-form-x))
+    (is #'eq sr-y (source-reference-parent sr-print-y))))
