@@ -13,6 +13,7 @@
                 #:file-location-end-line
                 #:file-location-start
                 #:file-location-end
+                #:process-function-binding
                 #:source-reference-parent
                 #:symbol-information-symbol)
   (:export #:cl-navigate-sc-test))
@@ -110,7 +111,6 @@
     (is = 0 (file-location-start-line list-ref))
     (is = 1 (file-location-start list-ref))))
 
-
 (defvar program3 "(let ((x 1)
                         (y 2))
                     (print x)
@@ -150,15 +150,15 @@
                          (id2 (x) x))
                     (id 1))")
 
-;(define-test parse-let*
-  ;:depends-on (parse-cst-simple eclector-read)
-  ;(let* ((cst (read-one-cst program5))
-         ;(res (parse-cst cst (empty-environment)))
-         ;;; TODO this is a bad setup as it makes assumptions about the
-         ;;; order of the source references
-         ;(sr-x (nth 1 res))
-         ;(sr-form-x (nth 3 res))
-         ;(sr-y (nth 2 res))
-         ;(sr-print-y (nth 5 res)))
-    ;(is #'eq sr-x (source-reference-parent sr-form-x))
-    ;(is #'eq sr-y (source-reference-parent sr-print-y))))
+(define-test parse-flet
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program5))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-id (nth 1 res))
+         (sr-call-id (nth 7 res))
+         (sr-x-2 (nth 5 res))
+         (sr-eval-x-2 (nth 6 res)))
+    (is #'eq sr-id (source-reference-parent sr-call-id))
+    (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
