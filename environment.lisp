@@ -82,25 +82,25 @@
 (defun add-variable-to-env (env source-reference)
   "Add a variable to the local scope."
   (push (cons (symbol-information-symbol source-reference) source-reference)
-        (local-variable-namespace env))
+        (scope-v-namespace (env-local-scope env)))
   env)
 
 (defun add-function-to-env (env source-reference)
   "Add a function to the local scope."
   (push (cons (symbol-information-symbol source-reference) source-reference)
-        (local-function-namespace env))
+        (scope-f-namespace (env-local-scope env)))
   env)
 
 (defun add-variable-to-env-global (env source-reference)
   "Add a variable to the global scope."
   (push (cons (symbol-information-symbol source-reference) source-reference)
-        (global-variable-namespace env))
+        (scope-v-namespace (env-global-scope env)))
   env)
 
 (defun add-function-to-env-global (env source-reference)
   "Add a function to the global scope."
   (push (cons (symbol-information-symbol source-reference) source-reference)
-        (global-function-namespace env))
+        (scope-f-namespace (env-global-scope env)))
   env)
 
 (define-condition missing-source-reference ()
@@ -112,10 +112,10 @@
                             (global-namespace-f #'global-variable-namespace))
   ;; TODO maybe use aif
   (let ((local-src-ref (assoc symbol (funcall local-namespace-f env))))
-    (if local-src-ref (values local-src-ref T)
+    (if local-src-ref (values (cdr local-src-ref) T)
         (let ((global-src-ref (assoc symbol
                                      (funcall global-namespace-f env))))
-          (if global-src-ref (values global-src-ref nil)
+          (if global-src-ref (values (cdr global-src-ref) nil)
               (error 'missing-source-reference))))))
 
 (defun find-variable (var env)

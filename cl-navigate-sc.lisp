@@ -1,13 +1,11 @@
-;;;; cl-navigate-sc.lisp
+#|
+  This file is a part of cl-navigate-sc-test.
+  (c) 2019 fiv0
+  Author: Finn Völkel <firstname.lastname@gmail.com>
+|#
 
 #|
-In this section we consider expression as returned by the
-symbol-location-client. So if we say we process a binding of the (var expr), we
-actually mean we process what the reader would have returned for such a form.
-Which would be in this case something of the form:
- :RESULT (#SYBMOL-INFORMATION ...) :SOURCE #FILE-LOCATION :CHILDREN
-   ((:RESULT #SYMBOL-INFORMATION :SOURCE #FILE-LOCATION :CHILDREN NIL)
-    (:RESULT #SYMBOL-INFORMATION :SOURCE #FILE-LOCATION :CHILDREN NIL))
+  Explain the file....
 |#
 
 (in-package #:cl-navigate-sc)
@@ -17,6 +15,12 @@ Which would be in this case something of the form:
 
 (define-condition not-yet-implemented ()
   ())
+
+(defun resti (cst i)
+  "Recursive application of cst:rest."
+  (if (= i 0)
+      cst
+      (resti (cst:rest cst) (1- i))))
 
 (defun atom-cst-p (cst)
   "Checks if the cst is of type atom."
@@ -32,9 +36,12 @@ Which would be in this case something of the form:
     (if (eq (type-of item) 'symbol)
         (let
           ((symbol-information (make-symbol-information item))
-           (parent (if (symbol-function item)
-                       (find-function item env)
-                       (find-variable item env)))
+           ;; TODO figure out how to best handle the case other package
+           ;; for now just check if its a standard symbol
+           (parent (when (not (standard-symbol-p cst))
+                     (if (fboundp item)
+                         (find-function item env)
+                         (find-variable item env))))
            (file-location (cst:source cst)))
           (values
             (list (make-source-reference symbol-information
@@ -53,8 +60,9 @@ Which would be in this case something of the form:
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
-  (let ((first (cst:raw first)))
-    (cond ((eq first 'let) (process-let-bindings)) ;; TODO
+  (let ((first (cst:first cst)))
+    (cond ((or (eq (cst:raw first) 'let) (eq (cst:raw first) 'let*))
+           (process-let-bindings cst env))
           (T (error 'not-yet-implemented)))))
 
 (defun standard-symbol-p (cst)
@@ -71,7 +79,8 @@ Which would be in this case something of the form:
   "Process a CST that is not special"
   (let ((first (cst:first cst)))
     (cond ((not (macro-function (cst:raw first)))
-           (parse-csts (cst-to-list cst))))))
+           (parse-csts (cst-to-list cst) env))
+          (T (error 'not-yet-implemented)))))
 
 (defun parse-cons (cst env)
   "Parse a cons-cst."
@@ -86,12 +95,73 @@ Which would be in this case something of the form:
       (parse-atom cst env)
       (parse-cons cst env)))
 
-(defun parse-csts (csts env)
+(defun parse-csts (csts env &optional (recursive nil))
   "Parse a list of expressions (csts)."
   (flet ((helper (refs-env cst)
-           (multiple-value-bind (refs env) (parse-cst cst (cdr refs-env))
-             (cons (append refs (car refs-env)) env))))
-    (reduce #'helper csts :initial-value (cons '() env))))
+           (multiple-value-bind (refs new-env)
+             (parse-cst cst (cdr refs-env))
+             (cons (append (car refs-env) refs) (if recursive new-env env)))))
+    (let  ((res (reduce #'helper csts :initial-value (cons '() env))))
+      (values (car res) (cdr res)))))
 
 
+(defun add-symbol-to-env (cst env &optional
+                              (add-env-function #'add-variable-to-env))
+  "Adds a symbol to env and creates a source-reference."
+  (let* ((symbol (cst:raw cst))
+         (symbol-information (make-symbol-information symbol))
+         (file-location (cst:source cst))
+         (sr (make-source-reference symbol-information file-location)))
+    (values (list sr) (funcall add-env-function env sr))))
 
+(defun add-symbols-to-env (csts env &optional
+                                (add-env-function #'add-function-to-env))
+  "Adds a list of symbols to env. Typically used with function lambda lists."
+  (flet ((helper (refs-env cst)
+           (multiple-value-bind (refs new-env)
+             (add-symbol-to-env cst (cdr refs-env) add-env-function)
+             (cons (append (car refs-env) refs) new-env))))
+    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
+      (values (car res) (cdr res)))))
+
+(define-condition binding-error ()
+  ())
+
+(defun process-binding (cst env &optional
+                            (add-env-function #'add-variable-to-env))
+  "Prcessess one binding of the form (binding form)."
+  (let ((binding-cst (cst:first cst))
+        (form-cst (cst:first (cst:rest cst))))
+    ;; TODO add global special stuff from form
+    (multiple-value-bind (sref newenv1)
+      (add-symbol-to-env binding-cst env add-env-function)
+      (multiple-value-bind (srefs newenv2) (parse-cst form-cst env)
+        (declare (ignore newenv2))
+        (values (append sref srefs) newenv1)))))
+
+(defun process-bindings (csts env &optional (recursive nil))
+  "Processes a list of binding csts."
+  (flet ((helper (refs-env cst)
+           (multiple-value-bind (refs new-env)
+             (process-binding cst (cdr refs-env))
+             (cons (append (car refs-env) refs)
+                   (if recursive
+                       new-env
+                       env)))))
+    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
+      (values (car res) (cdr res)))))
+
+(defun process-let-bindings (cst env)
+  "Process a let/let*."
+  (let* ((let-cst (cst:first cst))
+         (recursive (eq (cst:raw let-cst) 'let*))
+         (bindings (cst-to-list (cst:second cst)))
+         (forms (cst-to-list (resti cst 2))))
+    (multiple-value-bind (refs1 env1) (parse-atom let-cst env)
+      (declare (ignore env1))
+      (multiple-value-bind (refs2 env2) (process-bindings bindings env
+                                                          recursive)
+        ;; TODO add global special
+        (multiple-value-bind (refs3 env3) (parse-csts forms env2)
+          (declare (ignore env3))
+          (values (append refs1 refs2 refs3) env))))))

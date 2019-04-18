@@ -8,6 +8,13 @@
 (defpackage #:cl-navigate-sc.test
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
+  (:import-from #:cl-navigate-sc
+                #:file-location-start-line
+                #:file-location-end-line
+                #:file-location-start
+                #:file-location-end
+                #:source-reference-parent
+                #:symbol-information-symbol)
   (:export #:cl-navigate-sc.test))
 
 (in-package #:cl-navigate-sc.test)
@@ -22,21 +29,21 @@
 (defvar filepath #P"./tmp/lisp-test-file.lisp")
 (defvar filepath1 #P"./tmp/request.lisp")
 
-(define-test test-calculate-line-breaks
+(define-test calculate-line-breaks
   (let ((result (with-open-file (is filepath)
                   (calculate-line-breaks is))))
     (is #'eq'cons (type-of result))
     (is #'eq 10 (length result))))
 
 
-(define-test test-find-if-consecutive
+(define-test find-if-consecutive
  (is-values (find-if-consecutive #'(lambda (x y)
                                      (declare (ignore x)) (< 7 y))
                                  '(1 3 6 8))
    (= 6)
    (= 3)))
 
-(define-test test-file-position-to-location
+(define-test file-position-to-location
   :depends-on (test-find-if-consecutive)
   (let* ((res (file-position-to-location 69 '(1 45)))
          (line (car res))
@@ -44,7 +51,7 @@
     (is = 2 line)
     (is = 24 column)))
 
-(define-test test-create-file-position-to-file-location-function
+(define-test create-file-position-to-file-location-function
   :depends-on (test-calculate-line-breaks test-file-position-to-location)
   (let* ((res (with-open-file (is filepath)
                (let ((fn (create-file-position-to-file-location-function is)))
@@ -58,7 +65,7 @@
 (defvar program "(1 #|comment|# ;;test
                        \"string\")")
 
-(define-test test-eclector-read
+(define-test eclector-read
   (true (with-input-from-string (is program)
           (eclector.parse-result:read
             (make-instance 'symbol-location-client
@@ -66,11 +73,12 @@
                            (create-file-position-to-file-location-function is))
             is))))
 
-(define-test test-parse-from-file
+(define-test parse-from-file
+  :depends-on (eclector-read)
  (true (parse-from-file filepath1)))
 
 ;; enviroment.lisp testing
-(define-test test-set-get-environment
+(define-test set-get-environment
   (let* ((fl (make-instance 'file-location
                             :start-line 1
                             :end-line 2
@@ -90,13 +98,31 @@
 
 (defvar program2 "(list 1 2 3)")
 
-(define-test test-parse-cst-simple
+(define-test parse-cst-simple
   (let* ((cst (with-input-from-string (is program2)
                 (car (read-program is))))
          (res (parse-cst cst (empty-environment)))
-         (list-ref (caar res)))
-    (is #'eq 'list (cl-navigate-sc::symbol-information-symbol list-ref))
-    (is = 0 (cl-navigate-sc::file-location-start-line list-ref))
-    (is = 1 (cl-navigate-sc::file-location-start list-ref))))
+         (list-ref (car res)))
+    (is #'eq 'list (symbol-information-symbol list-ref))
+    (is = 0 (file-location-start-line list-ref))
+    (is = 1 (file-location-start list-ref))))
 
-(test 'test-parse-cst-simple)
+
+(defvar program3 "(let ((x 1)
+                        (y 2))
+                    (print x)
+                    (list x y))")
+
+(define-test parse-let
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (with-input-from-string (is program3)
+                (car (read-program is))))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-x (cadr res))
+         (sr-print-x (nth 4 res))
+         (sr-y (nth 2 res))
+         (sr-list-y (nth 7 res)))
+    (is #'eq sr-x (source-reference-parent sr-print-x))
+    (is #'eq sr-y (source-reference-parent sr-list-y))))
