@@ -37,7 +37,7 @@
                 :initform '()
                 :documentation "Variable namespace. Currently an a-list
                                 symbol . source-reference.")
-   (f-namespace :initarg :v-namespace
+   (f-namespace :initarg :f-namespace
                 :accessor scope-f-namespace
                 :initform '()
                 :documentation "Function namespace. Currently an a-list
@@ -46,6 +46,11 @@
 (defun empty-scope ()
   "Creates an empty scope instance."
   (make-instance 'scope))
+
+(defun copy-scope (scope)
+  (make-instance 'scope
+                 :v-namespace (copy-list (scope-v-namespace scope))
+                 :f-namespace (copy-list (scope-f-namespace scope))))
 
 ;; The local vs global scope here is essentially to create source references in
 ;; quasiquated code the refers back to the global scope, instead of the local.
@@ -62,6 +67,15 @@
 (defun empty-environment ()
   "Creates an empty environement instance."
   (make-instance 'environment))
+
+(defun copy-environment (env)
+  (make-instance 'environment
+                 :local-scope (copy-scope (env-local-scope env))
+                 :global-scope (copy-scope (env-global-scope env))))
+
+(defmacro with-env-copy ((copy env) &body body)
+  `(let ((,copy (copy-environment ,env)))
+     ,@body))
 
 (defun local-variable-namespace (env)
   "Return the local variable namespace."

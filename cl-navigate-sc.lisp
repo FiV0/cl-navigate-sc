@@ -6,6 +6,7 @@
 
 #|
   Every function in this file works on a cst.
+  The source-reference are currently returned in the order they are encountered.
   Explain the file....
 |#
 
@@ -162,26 +163,29 @@
 
 (defun process-lambda (cst env)
   "Process a cst of the form ((lambda-list body)"
-  (let ((lambda-list (cst:first cst))
-        (body (cst:rest cst)))
-    (multiple-value-bind (srefs1 new-env1)
-      (add-symbols-to-env (cst-to-list lambda-list) env)
-      (multiple-value-bind (srefs2 new-env2)
-        (parse-csts (cst-to-list body) new-env1)
-        (declare (ignore new-env2))
-        ;; TODO take care of special symbols
-        (values (append srefs1 srefs2) env)))))
+  (with-env-copy (copy-env env)
+   (let ((lambda-list (cst:first cst))
+         (body (cst:rest cst)))
+     (multiple-value-bind (srefs1 new-env1)
+       (add-symbols-to-env (cst-to-list lambda-list) env)
+       (multiple-value-bind (srefs2 new-env2)
+         (parse-csts (cst-to-list body) new-env1)
+         (declare (ignore new-env2))
+         ;; TODO take care of special symbols
+         (values (append srefs1 srefs2) copy-env))))))
 
 (defun process-function-binding (cst env &optional (recursive nil))
   "Process one binding of the form (name (lambda-list) body)."
-  (let ((name (cst:first cst))
-        (lambda (cst:rest cst)))
-    (multiple-value-bind (srefs1 new-env1)
-      (add-symbol-to-env name env #'add-function-to-env)
-      (multiple-value-bind (srefs2 new-env2)
-        (process-lambda lambda (if recursive new-env1 env))
-        (declare (ignore new-env2))
-        (values (append srefs1 srefs2) new-env1)))))
+  (with-env-copy (copy-env env)
+    (let ((name (cst:first cst))
+          (lambda (cst:rest cst)))
+      (multiple-value-bind (srefs1 new-env1)
+        (add-symbol-to-env name env #'add-function-to-env)
+        (with-env-copy (res-env new-env1)
+          (multiple-value-bind (srefs2 new-env2)
+            (process-lambda lambda (if recursive new-env1 copy-env))
+            (declare (ignore new-env2))
+            (values (append srefs1 srefs2) res-env)))))))
 
 (defun process-function-bindings (csts env &optional (recursive nil))
   "Process a list of function bindings."
@@ -190,7 +194,7 @@
            (multiple-value-bind (refs new-env)
              (process-function-binding cst (cdr refs-env) recursive)
              (cons (append (car refs-env) refs)
-                   (if recursive new-env env)))))
+                   (if recursive new-env (copy-environment env))))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
@@ -200,10 +204,11 @@
          (recursive (eq (cst:raw type-form) 'labels))
          (bindings (cst-to-list (cst:second cst)))
          (forms (cst-to-list (resti cst 2))))
-    (multiple-value-bind (refs1 env1) (parse-atom type-form env)
+    (multiple-value-bind (refs1 env1)
+      (parse-atom type-form (copy-environment env))
       (declare (ignore env1))
-      (multiple-value-bind (refs2 env2) (process-function-bindings bindings env
-                                                                   recursive)
+      (multiple-value-bind (refs2 env2)
+        (process-function-bindings bindings (copy-environment env) recursive)
         ;; TODO add global special
         (multiple-value-bind (refs3 env3) (parse-csts forms env2)
           (declare (ignore env3))
@@ -222,7 +227,8 @@
     ;; TODO add global special stuff from form
     (multiple-value-bind (sref new-env1)
       (add-symbol-to-env binding-cst env add-env-function)
-      (multiple-value-bind (srefs new-env2) (parse-cst form-cst env)
+      (multiple-value-bind (srefs new-env2)
+        (parse-cst form-cst (copy-environment env))
         (declare (ignore new-env2))
         (values (append sref srefs) new-env1)))))
 
@@ -230,11 +236,11 @@
   "Process a list of binding csts."
   (flet ((helper (refs-env cst)
            (multiple-value-bind (refs new-env)
-             (process-binding cst (cdr refs-env))
+             (process-binding cst (if recursive
+                                      (cdr refs-env)
+                                      (copy-environment env)))
              (cons (append (car refs-env) refs)
-                   (if recursive
-                       new-env
-                       env)))))
+                   (join-environments (cdr refs-env) new-env)))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
@@ -244,10 +250,11 @@
          (recursive (eq (cst:raw let-cst) 'let*))
          (bindings (cst-to-list (cst:second cst)))
          (forms (cst-to-list (resti cst 2))))
-    (multiple-value-bind (refs1 env1) (parse-atom let-cst env)
+    (multiple-value-bind (refs1 env1)
+      (parse-atom let-cst (copy-environment env))
       (declare (ignore env1))
-      (multiple-value-bind (refs2 env2) (process-bindings bindings env
-                                                          recursive)
+      (multiple-value-bind (refs2 env2)
+        (process-bindings bindings (copy-environment env) recursive)
         ;; TODO add global special
         (multiple-value-bind (refs3 env3) (parse-csts forms env2)
           (declare (ignore env3))

@@ -9,10 +9,12 @@
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
   (:import-from #:cl-navigate-sc
+                #:find-binding
                 #:file-location-start-line
                 #:file-location-end-line
                 #:file-location-start
                 #:file-location-end
+                #:missing-source-reference
                 #:process-function-binding
                 #:source-reference-parent
                 #:symbol-information-symbol)
@@ -131,7 +133,7 @@
 
 (defvar program4 "(let* ((x 1)
                          (y x))
-                    (print y))")
+                         (print y))")
 
 (define-test parse-let*
   :depends-on (parse-cst-simple eclector-read)
@@ -147,15 +149,14 @@
     (is #'eq sr-y (source-reference-parent sr-print-y))))
 
 (defvar program5 "(flet ((id (x) x)
-                         (id2 (x) x))
-                    (id 1))")
+                              (id2 (x) x))
+                         (id 1))")
 
 (define-test parse-flet
   :depends-on (parse-cst-simple eclector-read)
   (let* ((cst (read-one-cst program5))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
-
          ;; order of the source references
          (sr-id (nth 1 res))
          (sr-call-id (nth 7 res))
@@ -163,3 +164,53 @@
          (sr-eval-x-2 (nth 6 res)))
     (is #'eq sr-id (source-reference-parent sr-call-id))
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
+
+(test 'parse-let)
+
+(defvar program6 "(labels ((id (x) x)
+                                (id2 (x) (id x)))
+                         (id2 1))")
+
+(define-test parse-labels
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program6))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-id-2 (nth 4 res))
+         (sr-call-id-2 (nth 8 res))
+         (sr-x-2 (nth 5 res))
+         (sr-eval-x-2 (nth 7 res)))
+    (is #'eq sr-id-2 (source-reference-parent sr-call-id-2))
+    (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
+
+;; tests that local variable function bindings don't get passed onward
+(define-test parse-function-binding
+  :depends-on (parse-cst-simple eclector-read)
+  ;; cst is (id (x) x)
+  (let* ((cst (cst:first (cst:first (cst:rest (read-one-cst program5))))))
+    (multiple-value-bind (srefs env)
+      (process-function-binding cst (empty-environment))
+      (declare (ignore srefs))
+      (true (handler-case (find-binding 'x env)
+              (missing-source-reference (con) (declare (ignore con)) T)
+              (condition (con) (declare (ignore con)) nil))))))
+
+(defvar program-horrible
+  "(let ((x 1))
+     (flet ((x (x) x))
+       (x x)))")
+
+(define-test parse-let-flet
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program-horrible))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-x-var (nth 1 res))
+         (sr-eval-x-var (nth 7 res))
+         (sr-x-fun (nth 3 res))
+         (sr-x-fun-call (nth 6 res))
+         (x-parent (source-reference-parent sr-eval-x-var)))
+    (is #'eq sr-x-var (source-reference-parent sr-eval-x-var))
+    (is #'eq sr-x-fun (source-reference-parent sr-x-fun-call))))
