@@ -160,21 +160,28 @@
 
 ;;; local function bindings
 
+(defun process-lambda (cst env)
+  "Process a cst of the form ((lambda-list body)"
+  (let ((lambda-list (cst:first cst))
+        (body (cst:rest cst)))
+    (multiple-value-bind (srefs1 new-env1)
+      (add-symbols-to-env (cst-to-list lambda-list) env)
+      (multiple-value-bind (srefs2 new-env2)
+        (parse-csts (cst-to-list body) new-env1)
+        (declare (ignore new-env2))
+        ;; TODO take care of special symbols
+        (values (append srefs1 srefs2) env)))))
+
 (defun process-function-binding (cst env &optional (recursive nil))
   "Process one binding of the form (name (lambda-list) body)."
   (let ((name (cst:first cst))
-        (lambda-list (cst:second cst))
-        (body (resti cst 2)))
+        (lambda (cst:rest cst)))
     (multiple-value-bind (srefs1 new-env1)
       (add-symbol-to-env name env #'add-function-to-env)
       (multiple-value-bind (srefs2 new-env2)
-        (add-symbols-to-env (cst-to-list lambda-list)
-                            (if recursive new-env1 env))
-        (multiple-value-bind (srefs3 new-env3)
-          (parse-csts (cst-to-list body) new-env2)
-          (declare (ignore new-env3))
-          ;; TODO take care of special symbols
-          (values (append srefs1 srefs2 srefs3) new-env1))))))
+        (process-lambda lambda (if recursive new-env1 env))
+        (declare (ignore new-env2))
+        (values (append srefs1 srefs2) new-env1)))))
 
 (defun process-function-bindings (csts env &optional (recursive nil))
   "Process a list of function bindings."
@@ -183,15 +190,14 @@
            (multiple-value-bind (refs new-env)
              (process-function-binding cst (cdr refs-env) recursive)
              (cons (append (car refs-env) refs)
-                   new-env))))
+                   (if recursive new-env env)))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
 (defun process-local-function-bindings (cst env)
   "Process a flet/labels."
   (let* ((type-form (cst:first cst))
-         (recursive ;;(eq (cst:raw type-form) 'labels)
-                    T)
+         (recursive (eq (cst:raw type-form) 'labels))
          (bindings (cst-to-list (cst:second cst)))
          (forms (cst-to-list (resti cst 2))))
     (multiple-value-bind (refs1 env1) (parse-atom type-form env)
