@@ -155,6 +155,7 @@
   (let* ((cst (read-one-cst program5))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
+
          ;; order of the source references
          (sr-id (nth 1 res))
          (sr-call-id (nth 7 res))

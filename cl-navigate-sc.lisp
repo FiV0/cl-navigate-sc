@@ -5,6 +5,7 @@
 |#
 
 #|
+  Every function in this file works on a cst.
   Explain the file....
 |#
 
