@@ -65,16 +65,18 @@
 
 #|
  List of special forms:
-   block      let*                  return-from
-   catch      load-time-value       setq
-   eval-when  locally               symbol-macrolet
-   flet       macrolet              tagbody
-   function   multiple-value-call   the
-   go         multiple-value-prog1  throw
-   if         progn                 unwind-protect
-   labels     progv
-   let        quote
+   block          let*                   1  return-from
+   catch          load-time-value           setq
+   eval-when      locally                   symbol-macrolet
+   flet        1  macrolet                  tagbody
+   function       multiple-value-call       the
+   go             multiple-value-prog1      throw
+   if          1  progn                  1  unwind-protect
+   labels      1  progv
+   let         1  quote
 |#
+
+(defparameter +special-like-function+ '(if progn progv))
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
@@ -83,6 +85,11 @@
            (process-let-bindings cst env))
           ((or (eq (cst:raw first) 'flet) (eq (cst:raw first) 'labels))
            (process-local-function-bindings cst env))
+          ((eq (cst:raw first) 'progv)
+           (process-progv cst env))
+          ((member (cst:raw first) +special-like-function+)
+           ;; special/global needs recursive here
+           (process-function-call cst env))
           (T (error 'not-yet-implemented)))))
 
 (defun standard-symbol-p (cst)
@@ -96,7 +103,8 @@
       (cons (cst:first cst) (cst-to-list (cst:rest cst)))))
 
 (defun process-function-call (cst env)
-  "Process a function call cst."
+  "Process a function call cst. Some special operators are also processed using
+   this function as they are no different in terms of source referencing."
   (let* ((first (cst:first cst))
         (function (cst:raw first))
         (symbol-information (make-symbol-information function))
@@ -158,6 +166,31 @@
              (cons (append (car refs-env) refs) new-env))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
+
+;;; progv
+
+(defun process-progv (cst env)
+  "Process a progv cst."
+  (let* ((progv (cst:first cst))
+         (bindings (cst:second cst))
+         (bindings-without-quote (cst:second bindings))
+         (values (cst:third cst))
+         (forms (cst:fourth cst)))
+    (assert (eq (cst:raw (cst:first bindings)) 'quote))
+    (multiple-value-bind (srefs1 env1)
+      (parse-atom progv env)
+      (declare (ignore env1))
+      (multiple-value-bind (srefs2 env2)
+        ;; don't actually need to be added to global env
+        (add-symbols-to-env (cst-to-list bindings-without-quote)
+                            (copy-environment env))
+        (multiple-value-bind (srefs3 env3)
+          (parse-csts (cst-to-list values) (copy-environment env))
+          (declare (ignore env3))
+          (multiple-value-bind (srefs4 env4)
+            (parse-csts (cst-to-list forms) env2)
+            (declare (ignore env4))
+            (values (append srefs1 srefs2 srefs3 srefs4) env)))))))
 
 ;;; local function bindings
 

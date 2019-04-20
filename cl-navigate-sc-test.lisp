@@ -210,7 +210,23 @@
          (sr-x-var (nth 1 res))
          (sr-eval-x-var (nth 7 res))
          (sr-x-fun (nth 3 res))
-         (sr-x-fun-call (nth 6 res))
-         (x-parent (source-reference-parent sr-eval-x-var)))
+         (sr-x-fun-call (nth 6 res)))
     (is #'eq sr-x-var (source-reference-parent sr-eval-x-var))
     (is #'eq sr-x-fun (source-reference-parent sr-x-fun-call))))
+
+(defvar program8 "(if 1
+                      (let ((x 1)) x)
+                      (let ((x 1)) x))")
+
+(define-test parse-if
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program8))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-x-1 (nth 2 res))
+         (sr-eval-x-1 (nth 3 res))
+         (sr-x-2 (nth 5 res))
+         (sr-eval-x-2 (nth 6 res)))
+    (is #'eq sr-x-1 (source-reference-parent sr-eval-x-1))
+    (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))

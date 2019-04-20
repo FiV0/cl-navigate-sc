@@ -52,6 +52,13 @@
                  :v-namespace (copy-list (scope-v-namespace scope))
                  :f-namespace (copy-list (scope-f-namespace scope))))
 
+(defun join-scope (scope1 scope2)
+  (make-instance 'scope
+                 :v-namespace (append (copy-list (scope-v-namespace scope1))
+                                      (copy-list (scope-v-namespace scope2)))
+                 :f-namespace (append (copy-list (scope-f-namespace scope1))
+                                      (copy-list (scope-f-namespace scope2)))))
+
 ;; The local vs global scope here is essentially to create source references in
 ;; quasiquated code the refers back to the global scope, instead of the local.
 (defclass environment ()
@@ -72,6 +79,13 @@
   (make-instance 'environment
                  :local-scope (copy-scope (env-local-scope env))
                  :global-scope (copy-scope (env-global-scope env))))
+
+(defun join-environments (env1 env2)
+  (make-instance 'environment
+                 :local-scope (join-scope (env-local-scope env1)
+                                          (env-local-scope env2))
+                 :global-scope (join-scope (env-global-scope env1)
+                                           (env-global-scope env2))))
 
 (defmacro with-env-copy ((copy env) &body body)
   `(let ((,copy (copy-environment ,env)))
