@@ -284,3 +284,25 @@
          (sr-x (nth 2 res))
          (sr-eval-x (nth 3 res)))
     (is #'eq sr-x (source-reference-parent sr-eval-x))))
+
+(defvar program14 "(tagbody
+                     t1
+                     (let ((x 1))
+                       (go t1))
+                     t2
+                     (go t2))")
+
+(define-test parse-tagbody
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program14))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the order of
+         ;; processing
+         (sr-t1 (nth 1 res))
+         (sr-t2 (nth 2 res))
+         (sr-eval-t1 (nth 6 res))
+         (sr-eval-t2 (nth 8 res)))
+    (is #'eq sr-t1 (source-reference-parent sr-eval-t1))
+    (is #'eq sr-t2 (source-reference-parent sr-eval-t2))))
+
+(test 'parse-tagbody)

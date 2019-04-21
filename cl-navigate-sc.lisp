@@ -71,7 +71,7 @@
  List of special forms:
    block       1  let*                   1  return-from            1
    catch       1  load-time-value           setq
-   eval-when      locally                   symbol-macrolet
+   eval-when   1  locally                   symbol-macrolet
    flet        1  macrolet                  tagbody
    function       multiple-value-call       the
    go             multiple-value-prog1      throw                  1
@@ -80,7 +80,7 @@
    let         1  quote
 |#
 
-(defparameter +special-like-function+ '(if progn return-from))
+(defparameter +special-like-function+ '(if progn return-from throw go))
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
@@ -96,6 +96,8 @@
           ((or (eq (cst:raw first) 'block) (eq (cst:raw first) 'catch))
            (process-block cst env))
           ((eq (cst:raw first) 'eval-when)
+           (process-eval-when cst env))
+          ((eq (cst:raw first) 'tagbody)
            (process-eval-when cst env))
           ((member (cst:raw first) +special-like-function+)
            ;; special/global needs recursive here
@@ -207,6 +209,35 @@
         (parse-csts (cst-to-list forms) env)
         (declare (ignore env2))
         (values (append srefs1 srefs2) env)))))
+
+;; tagbody
+
+(defun extract-tags-and-forms (cst)
+  "Helper function for process-tagbody. Splits the tagbody forms into tags and
+   actual forms to be evaluated."
+  (flet ((helper (tags-and-forms cst)
+           (if (atom-cst-p cst)
+               (cons (cons cst (car tags-and-forms)) (cdr tags-and-forms))
+               (cons (car tags-and-forms) (cons cst (cdr tags-and-forms))))))
+    (let ((res (reduce #'helper (cst-to-list cst)
+                       :initial-value (cons '() '()))))
+      (values (nreverse (car res)) (nreverse (cdr res))))))
+
+(defun process-tagbody (cst env)
+  "Process a tagbody."
+  (let* ((tagbody (cst:first cst))
+         (tags-and-forms (cst:rest cst)))
+    (multiple-value-bind (srefs1 env1)
+      (parse-atom tagbody env)
+      (declare (ignore env1))
+      (multiple-value-bind (tags forms)
+        (extract-tags-and-forms tags-and-forms)
+        (multiple-value-bind (srefs2 env2)
+          (add-symbols-to-env tags (copy-environment env))
+          (multiple-value-bind (srefs3 env3)
+            (parse-csts forms env2)
+            (declare (ignore env3))
+            (values (append srefs1 srefs2 srefs3) env)))))))
 
 ;; block
 
