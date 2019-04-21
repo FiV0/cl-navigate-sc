@@ -44,17 +44,21 @@
            ;; TODO figure out how to best handle the case other package
            ;; for now just check if its a standard symbol
            (parent (when (not (standard-symbol-p cst))
-                     (if (fboundp item)
-                         (error 'should-not-happen);(find-function item env)
-                         (find-variable item env))))
+                     (find-binding item env)
+                     ;(if (fboundp item)
+                         ;(error 'should-not-happen);(find-function item env)
+                         ;(find-variable item env))
+                     ))
            (file-location (cst:source cst)))
-          (values
-            (list (make-source-reference symbol-information
-                                         file-location parent))
-            env))
+          (if file-location
+           (values
+             (list (make-source-reference symbol-information
+                                          file-location parent))
+             env)
+           (values '() env)))
         (values '() env))))
 
-(defparameter +stop-parse-symbols+ '(quote eclector.reader:quasiquote))
+(defparameter +stop-parse-symbols+ '(eclector.reader:quasiquote))
 (defun stop-parse (cst)
   "Returns true if the cst is of a raw symbol to stop parsing."
   (and (atom-cst-p cst) (member (cst:raw cst) +stop-parse-symbols+)))
@@ -72,11 +76,11 @@
    function       multiple-value-call       the
    go             multiple-value-prog1      throw
    if          1  progn                  1  unwind-protect
-   labels      1  progv
+   labels      1  progv                  1
    let         1  quote
 |#
 
-(defparameter +special-like-function+ '(if progn progv))
+(defparameter +special-like-function+ '(if progn return-from))
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
@@ -87,6 +91,10 @@
            (process-local-function-bindings cst env))
           ((eq (cst:raw first) 'progv)
            (process-progv cst env))
+          ((eq (cst:raw first) 'quote)
+           (process-quote cst env))
+          ((eq (cst:raw first) 'block)
+           (process-block cst env))
           ((member (cst:raw first) +special-like-function+)
            ;; special/global needs recursive here
            (process-function-call cst env))
@@ -166,6 +174,40 @@
              (cons (append (car refs-env) refs) new-env))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
+
+;; quote
+
+(defun process-quote (cst env)
+  "Process a quote cst."
+  (let ((quote (cst:first cst))
+        (val (cst:second cst)))
+    (assert (eq (cst:raw quote) 'quote))
+    (multiple-value-bind (srefs1 env1)
+      (parse-atom quote env)
+      (declare (ignore env1))
+      (if (eq (type-of val) 'cst:atom-cst)
+          (multiple-value-bind (srefs2 env2)
+            (parse-atom val env)
+            (declare (ignore env2))
+            (values (append srefs1 srefs2) env))
+          (error 'not-yet-implemented)))))
+
+;; block
+
+(defun process-block (cst env)
+  "Process a block cst."
+  (let ((block (cst:first cst))
+        (symbol-declaration (cst:second cst))
+        (forms (resti cst 2)))
+    (multiple-value-bind (srefs1 env1)
+      (parse-atom block env)
+      (declare (ignore env1))
+      (multiple-value-bind (srefs2 env2)
+        (add-symbol-to-env symbol-declaration (copy-environment env))
+        (multiple-value-bind (srefs3 env3)
+          (parse-csts (cst-to-list forms) env2)
+          (declare (ignore env3))
+          (values (append srefs1 srefs2 srefs3) env))))))
 
 ;;; progv
 

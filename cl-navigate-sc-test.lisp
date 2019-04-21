@@ -9,6 +9,8 @@
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
   (:import-from #:cl-navigate-sc
+                #:add-variable-to-env-global
+                #:dummy-source-reference
                 #:find-binding
                 #:file-location-start-line
                 #:file-location-end-line
@@ -165,8 +167,6 @@
     (is #'eq sr-id (source-reference-parent sr-call-id))
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
 
-(test 'parse-let)
-
 (defvar program6 "(labels ((id (x) x)
                                 (id2 (x) (id x)))
                          (id2 1))")
@@ -230,3 +230,46 @@
          (sr-eval-x-2 (nth 6 res)))
     (is #'eq sr-x-1 (source-reference-parent sr-eval-x-1))
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
+
+(defvar program9 "(progv '(*x* *y*) (1 2) (list *x* *y*))")
+
+(define-test parse-progv
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program9))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         (sr-x-star (nth 1 res))
+         (sr-x-star-eval (nth 4 res))
+         (sr-y-star (nth 2 res))
+         (sr-y-star-eval (nth 5 res)))
+    (is #'eq sr-x-star (source-reference-parent sr-x-star-eval))
+    (is #'eq sr-y-star (source-reference-parent sr-y-star-eval))))
+
+(defvar program10 "'test-test")
+(defvar program11 "(quote test-test)")
+
+(define-test parse-quote
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((_ (intern "test-test" :cl-navigate-sc-test))
+         (dummy-sr (dummy-source-reference 'test-test))
+         (env (add-variable-to-env-global (empty-environment) dummy-sr))
+         (cst1 (read-one-cst program10))
+         (cst2 (read-one-cst program11))
+         (res1 (parse-cst cst1 env))
+         (res2 (parse-cst cst2 env))
+         )
+    (declare (ignore _))
+    (is = 1 (length res1))
+    (is = 2 (length res2))
+    ))
+
+(defvar program12 "(block test-test (+ 1 2) (return-from test-test))")
+
+(define-test parse-block
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program12))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         (sr-test (nth 1 res))
+         (sr-test-quote (nth 4 res)))
+    (is #'eq sr-test (source-reference-parent sr-test-quote))))
