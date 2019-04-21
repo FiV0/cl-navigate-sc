@@ -69,12 +69,12 @@
 
 #|
  List of special forms:
-   block          let*                   1  return-from
-   catch          load-time-value           setq
+   block       1  let*                   1  return-from            1
+   catch       1  load-time-value           setq
    eval-when      locally                   symbol-macrolet
    flet        1  macrolet                  tagbody
    function       multiple-value-call       the
-   go             multiple-value-prog1      throw
+   go             multiple-value-prog1      throw                  1
    if          1  progn                  1  unwind-protect
    labels      1  progv                  1
    let         1  quote
@@ -93,8 +93,10 @@
            (process-progv cst env))
           ((eq (cst:raw first) 'quote)
            (process-quote cst env))
-          ((eq (cst:raw first) 'block)
+          ((or (eq (cst:raw first) 'block) (eq (cst:raw first) 'catch))
            (process-block cst env))
+          ((eq (cst:raw first) 'eval-when)
+           (process-eval-when cst env))
           ((member (cst:raw first) +special-like-function+)
            ;; special/global needs recursive here
            (process-function-call cst env))
@@ -192,10 +194,25 @@
             (values (append srefs1 srefs2) env))
           (error 'not-yet-implemented)))))
 
+;; eval-when
+
+(defun process-eval-when (cst env)
+  "Process an eval-when. Ignoring the cases."
+  (let ((eval-when (cst:first cst))
+        (forms (resti cst 2)))
+    (multiple-value-bind (srefs1 env1)
+      (parse-atom eval-when env)
+      (declare (ignore env1))
+      (multiple-value-bind (srefs2 env2)
+        (parse-csts (cst-to-list forms) env)
+        (declare (ignore env2))
+        (values (append srefs1 srefs2) env)))))
+
 ;; block
 
 (defun process-block (cst env)
-  "Process a block cst."
+  "Process a block/catch cst. Catch has different semantics then block but in
+   in terms of source references it should be the same thing."
   (let ((block (cst:first cst))
         (symbol-declaration (cst:second cst))
         (forms (resti cst 2)))

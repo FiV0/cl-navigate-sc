@@ -260,8 +260,7 @@
          )
     (declare (ignore _))
     (is = 1 (length res1))
-    (is = 2 (length res2))
-    ))
+    (is = 2 (length res2))))
 
 (defvar program12 "(block test-test (+ 1 2) (return-from test-test))")
 
@@ -273,3 +272,15 @@
          (sr-test (nth 1 res))
          (sr-test-quote (nth 4 res)))
     (is #'eq sr-test (source-reference-parent sr-test-quote))))
+
+
+(defvar program13 "(eval-when (:compile-toplevel) (let ((x 1)) x))")
+
+(define-test parse-eval-when
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program13))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         (sr-x (nth 2 res))
+         (sr-eval-x (nth 3 res)))
+    (is #'eq sr-x (source-reference-parent sr-eval-x))))
