@@ -70,17 +70,20 @@
 #|
  List of special forms:
    block       1  let*                   1  return-from            1
-   catch       1  load-time-value           setq
-   eval-when   1  locally                   symbol-macrolet
-   flet        1  macrolet                  tagbody
-   function       multiple-value-call       the
-   go             multiple-value-prog1      throw                  1
-   if          1  progn                  1  unwind-protect
+   catch       1  load-time-value        1  setq                   1
+   eval-when   1  locally                1  symbol-macrolet
+   flet        1  macrolet                  tagbody                1
+   function    1  multiple-value-call    1  the                    1
+   go          1  multiple-value-prog1   1  throw                  1
+   if          1  progn                  1  unwind-protect         1
    labels      1  progv                  1
    let         1  quote
 |#
 
-(defparameter +special-like-function+ '(if progn return-from throw go))
+(defparameter +special-like-function+
+  (list 'if 'function 'go 'load-time-value 'locally 'multiple-value-call
+        'multiple-value-prog1 'mulitple-value-prog1 'progn 'return-from 'setq
+        'the 'throw 'unwind-protect))
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
@@ -98,7 +101,7 @@
           ((eq (cst:raw first) 'eval-when)
            (process-eval-when cst env))
           ((eq (cst:raw first) 'tagbody)
-           (process-eval-when cst env))
+           (process-tagbody cst env))
           ((member (cst:raw first) +special-like-function+)
            ;; special/global needs recursive here
            (process-function-call cst env))
