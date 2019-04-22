@@ -19,5 +19,6 @@
                (:file "utils")
                (:file "file-location-read")
                (:file "environment")
+               (:file "lambda-list-helpers")
                (:file "cl-navigate-sc"))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-navigate-sc-test))))

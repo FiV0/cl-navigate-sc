@@ -17,7 +17,10 @@
                 #:file-location-start
                 #:file-location-end
                 #:missing-source-reference
+                #:parse-program
+                #:process-defun
                 #:process-function-binding
+                #:read-program
                 #:source-reference-parent
                 #:symbol-information-symbol)
   (:export #:cl-navigate-sc-test))
@@ -305,4 +308,27 @@
     (is #'eq sr-t1 (source-reference-parent sr-eval-t1))
     (is #'eq sr-t2 (source-reference-parent sr-eval-t2))))
 
-(test 'parse-tagbody)
+(defvar program15 "(funcall (function +) 1 2)")
+
+(define-test parse-function
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program15))
+         (res (parse-cst cst (empty-environment))))
+    (declare (ignore res))
+    (true T)))
+
+(defvar program16
+  "(defun id (x) x)
+   (id 1)")
+
+(defun read-program-from-string (str)
+  (with-input-from-string (is str)
+    (read-program is)))
+
+(define-test parse-defun
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((csts (read-program-from-string program16))
+         (res (parse-program csts))
+         (sr-id (nth 1 res))
+         (sr-id-eval (nth 4 res)))
+    (is #'eq sr-id (source-reference-parent sr-id-eval))))

@@ -138,6 +138,8 @@
   (let ((first (cst:first cst)))
     (cond ((not (macro-function (cst:raw first)))
            (process-function-call cst env))
+          ((eq (cst:raw first) 'defun)
+           (process-defun cst env))
           (T (error 'not-yet-implemented)))))
 
 (defun parse-cons (cst env)
@@ -162,6 +164,10 @@
     (let  ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
+(defun parse-program (csts &optional (env (empty-environment)))
+  "Process a program in the form of toplevel csts. Essentially just a alias for
+   (parse-csts csts env T) == (parse-program csts env)"
+  (parse-csts csts env T))
 
 (defun add-symbol-to-env (cst env &optional
                               (add-env-function #'add-variable-to-env))
@@ -181,6 +187,25 @@
              (cons (append (car refs-env) refs) new-env))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
+
+;; defun
+
+(defun process-defun (cst env)
+  "Process a function declaration."
+  (let ((defun (cst:first cst))
+        (name (cst:second cst))
+        (lambda-list (parse-ordinary-lambda-list (cst:third cst)))
+        (body (resti cst 3)))
+    (let ((srefs1 (parse-atom defun env)))
+      (multiple-value-bind (srefs2 env2)
+        (add-symbol-to-env name env #'add-function-to-env-global)
+        (multiple-value-bind (srefs3 env3)
+          (add-symbols-to-env lambda-list env2)
+          (multiple-value-bind (srefs4 env4)
+            (parse-csts (cst-to-list body) (join-environments env3 env2))
+            (declare (ignore env4))
+            (values (append srefs1 srefs2 srefs3 srefs4)
+                    env2)))))))
 
 ;; quote
 
