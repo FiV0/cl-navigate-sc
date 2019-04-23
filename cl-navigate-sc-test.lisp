@@ -36,11 +36,11 @@
 (ql:quickload :alexandria)
 
 ;; file-location-read.lisp
-(defvar filepath #P"./tmp/lisp-test-file.lisp")
-(defvar filepath1 #P"./tmp/request.lisp")
+(defvar *filepath* #P"./tmp/lisp-test-file.lisp")
+(defvar *filepath1* #P"./tmp/request.lisp")
 
 (define-test calculate-line-breaks
-  (let ((result (with-open-file (is filepath)
+  (let ((result (with-open-file (is *filepath*)
                   (calculate-line-breaks is))))
     (is #'eq'cons (type-of result))
     (is #'eq 10 (length result))))
@@ -63,7 +63,7 @@
 
 (define-test create-file-position-to-file-location-function
   :depends-on (calculate-line-breaks file-position-to-location)
-  (let* ((res (with-open-file (is filepath)
+  (let* ((res (with-open-file (is *filepath*)
                (let ((fn (create-file-position-to-file-location-function is)))
                  (funcall fn 209))))
          (line (car res))
@@ -72,11 +72,11 @@
     (is = 25 column)))
 
 
-(defvar program "(1 #|comment|# ;;test
+(defvar *program* "(1 #|comment|# ;;test
                        \"string\")")
 
 (define-test eclector-read
-  (true (with-input-from-string (is program)
+  (true (with-input-from-string (is *program*)
           (eclector.parse-result:read
             (make-instance 'symbol-location-client
                            :file-position-to-file-location
@@ -85,7 +85,7 @@
 
 (define-test parse-from-file
   :depends-on (eclector-read)
- (true (parse-from-file filepath1)))
+ (true (parse-from-file *filepath1*)))
 
 ;; enviroment.lisp testing
 (define-test set-get-environment
@@ -110,24 +110,24 @@
   (with-input-from-string (is string)
     (car (read-program is))))
 
-(defvar program2 "(list 1 2 3)")
+(defvar *program2* "(list 1 2 3)")
 
 (define-test parse-cst-simple
-  (let* ((cst (read-one-cst program2))
+  (let* ((cst (read-one-cst *program2*))
          (res (parse-cst cst (empty-environment)))
          (list-ref (car res)))
     (is #'eq 'list (symbol-information-symbol list-ref))
     (is = 0 (file-location-start-line list-ref))
     (is = 1 (file-location-start list-ref))))
 
-(defvar program3 "(let ((x 1)
-                        (y 2))
-                    (print x)
-                    (list x y))")
+(defvar *program3* "(let ((x 1)
+                          (y 2))
+                      (print x)
+                      (list x y))")
 
 (define-test parse-let
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program3))
+  (let* ((cst (read-one-cst *program3*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -138,13 +138,13 @@
     (is #'eq sr-x (source-reference-parent sr-print-x))
     (is #'eq sr-y (source-reference-parent sr-list-y))))
 
-(defvar program4 "(let* ((x 1)
+(defvar *program4* "(let* ((x 1)
                          (y x))
                          (print y))")
 
 (define-test parse-let*
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program4))
+  (let* ((cst (read-one-cst *program4*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -161,7 +161,7 @@
 
 (define-test parse-flet
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program5))
+  (let* ((cst (read-one-cst *program5*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -172,13 +172,13 @@
     (is #'eq sr-id (source-reference-parent sr-call-id))
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
 
-(defvar program6 "(labels ((id (x) x)
+(defvar *program6* "(labels ((id (x) x)
                                 (id2 (x) (id x)))
                          (id2 1))")
 
 (define-test parse-labels
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program6))
+  (let* ((cst (read-one-cst *program6*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -201,14 +201,14 @@
               (missing-source-reference (con) (declare (ignore con)) T)
               (condition (con) (declare (ignore con)) nil))))))
 
-(defvar program-horrible
+(defvar *program-horrible*
   "(let ((x 1))
      (flet ((x (x) x))
        (x x)))")
 
 (define-test parse-let-flet
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program-horrible))
+  (let* ((cst (read-one-cst *program-horrible*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          ;; order of the source references
@@ -236,11 +236,11 @@
     (is #'eq sr-x-1 (source-reference-parent sr-eval-x-1))
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
 
-(defvar program9 "(progv '(*x* *y*) (1 2) (list *x* *y*))")
+(defvar *program9* "(progv '(*x* *y*) (1 2) (list *x* *y*))")
 
 (define-test parse-progv
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program9))
+  (let* ((cst (read-one-cst *program9*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          (sr-x-star (nth 1 res))
@@ -250,16 +250,16 @@
     (is #'eq sr-x-star (source-reference-parent sr-x-star-eval))
     (is #'eq sr-y-star (source-reference-parent sr-y-star-eval))))
 
-(defvar program10 "'test-test")
-(defvar program11 "(quote test-test)")
+(defvar *program10* "'test-test")
+(defvar *program11* "(quote test-test)")
 
 (define-test parse-quote
   :depends-on (parse-cst-simple eclector-read)
   (let* ((_ (intern "test-test" :cl-navigate-sc-test))
          (dummy-sr (dummy-source-reference 'test-test))
          (env (add-variable-to-env-global (empty-environment) dummy-sr))
-         (cst1 (read-one-cst program10))
-         (cst2 (read-one-cst program11))
+         (cst1 (read-one-cst *program10*))
+         (cst2 (read-one-cst *program11*))
          (res1 (parse-cst cst1 env))
          (res2 (parse-cst cst2 env))
          )
@@ -267,11 +267,11 @@
     (is = 1 (length res1))
     (is = 2 (length res2))))
 
-(defvar program12 "(block test-test (+ 1 2) (return-from test-test))")
+(defvar *program12* "(block test-test (+ 1 2) (return-from test-test))")
 
 (define-test parse-block
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program12))
+  (let* ((cst (read-one-cst *program12*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          (sr-test (nth 1 res))
@@ -279,27 +279,27 @@
     (is #'eq sr-test (source-reference-parent sr-test-quote))))
 
 
-(defvar program13 "(eval-when (:compile-toplevel) (let ((x 1)) x))")
+(defvar *program13* "(eval-when (:compile-toplevel) (let ((x 1)) x))")
 
 (define-test parse-eval-when
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program13))
+  (let* ((cst (read-one-cst *program13*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the
          (sr-x (nth 2 res))
          (sr-eval-x (nth 3 res)))
     (is #'eq sr-x (source-reference-parent sr-eval-x))))
 
-(defvar program14 "(tagbody
-                     t1
-                     (let ((x 1))
-                       (go t1))
-                     t2
-                     (go t2))")
+(defvar *program14* "(tagbody
+                       t1
+                       (let ((x 1))
+                         (go t1))
+                       t2
+                       (go t2))")
 
 (define-test parse-tagbody
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program14))
+  (let* ((cst (read-one-cst *program14*))
          (res (parse-cst cst (empty-environment)))
          ;; TODO this is a bad setup as it makes assumptions about the order of
          ;; processing
@@ -310,18 +310,18 @@
     (is #'eq sr-t1 (source-reference-parent sr-eval-t1))
     (is #'eq sr-t2 (source-reference-parent sr-eval-t2))))
 
-(defvar program15 "(funcall (function +) 1 2)")
+(defvar *program15* "(funcall (function +) 1 2)")
 
 (define-test parse-function
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program15))
+  (let* ((cst (read-one-cst *program15*))
          (res (parse-cst cst (empty-environment))))
     (declare (ignore res))
     (true T)))
 
-(defvar program16
+(defvar *program16*
   "(defun id (x) x)
-   (id 1)")
+     (id 1)")
 
 (defun read-program-from-string (str)
   (with-input-from-string (is str)
@@ -329,19 +329,19 @@
 
 (define-test parse-defun
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((csts (read-program-from-string program16))
+  (let* ((csts (read-program-from-string *program16*))
          (res (parse-program csts))
          (sr-id (nth 1 res))
          (sr-id-eval (nth 4 res)))
     (is #'eq sr-id (source-reference-parent sr-id-eval))))
 
 
-(defvar program17
+(defvar *program17*
   "(defun test (a &rest rest)
      (list a rest))")
 
 (define-test parse-ordinary-lambda-list
-  (let* ((cst (read-one-cst program17))
+  (let* ((cst (read-one-cst *program17*))
          (lambda-list (cst:third cst))
          (res (parse-ordinary-lambda-list lambda-list))
          (cst-a (nth 0 res))
@@ -352,7 +352,7 @@
 
 (define-test parse-defun2
   :depends-on (parse-cst-simple eclector-read)
-  (let* ((cst (read-one-cst program17))
+  (let* ((cst (read-one-cst *program17*))
          (res (parse-cst cst (empty-environment)))
          (sr-a (nth 2 res))
          (sr-a-eval (nth 5 res))
@@ -361,12 +361,30 @@
     (is #'eq sr-a (source-reference-parent sr-a-eval))
     (is #'eq sr-rest (source-reference-parent sr-rest-eval))))
 
-(defvar program18
+(defvar *program18*
+  "(defun test (a &optional (b 1) &key c)
+     (list a b c))")
+
+(define-test parse-defun3
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst *program18*))
+         (res (parse-cst cst (empty-environment)))
+         (sr-a (nth 2 res))
+         (sr-b (nth 3 res))
+         (sr-c (nth 4 res))
+         (sr-a-eval (nth 6 res))
+         (sr-b-eval (nth 7 res))
+         (sr-c-eval (nth 8 res)))
+    (is #'eq sr-a (source-reference-parent sr-a-eval))
+    (is #'eq sr-b (source-reference-parent sr-b-eval))
+    (is #'eq sr-c (source-reference-parent sr-c-eval))))
+
+(defvar *program19*
   "(defmacro loser ((a b) &body body)
      `(list ,a ,b ,@body))")
 
 (define-test parse-macro-lambda-list
-  (let* ((cst (read-one-cst program18))
+  (let* ((cst (read-one-cst *program19*))
          (lambda-list (cst:third cst))
          (res (parse-macro-lambda-list lambda-list))
          (cst-a (nth 0 res))
@@ -378,7 +396,7 @@
     (is #'eq 'body (cst:raw cst-body))))
 
 (define-test parse-macro
-  (let* ((cst (read-one-cst program18))
+  (let* ((cst (read-one-cst *program19*))
          (res (parse-cst cst (empty-environment)))
          (sr-a (nth 2 res))
          (sr-a-eval (nth 5 res))

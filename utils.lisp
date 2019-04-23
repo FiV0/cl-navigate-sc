@@ -13,5 +13,3 @@
        (let ((,f (lambda () ,symbol)))
          (let ((,symbol 2))
            (eql 2 (funcall ,f)))))))
-
-;; checking for symbol to be macro use macro-function
