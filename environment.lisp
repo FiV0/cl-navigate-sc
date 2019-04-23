@@ -17,16 +17,17 @@
                                                  &optional (parent nil))
   (let ((instance
           (make-instance 'source-reference
-                         :parent nil
+                         :parent parent
                          :start-line (file-location-start-line file-location)
                          :end-line (file-location-end-line file-location)
                          :start (file-location-start file-location)
                          :end (file-location-end file-location)
                          :symbol (symbol-information-symbol symbol-information)
                          :error (symbol-information-error symbol-information))))
-    (if parent
-        (set-source-reference instance parent)
-        (set-source-reference instance instance))))
+    ;(if parent
+        ;(set-source-reference instance parent)
+        ;(set-source-reference instance instance))
+    instance))
 
 (defun dummy-source-reference (symbol)
   (make-instance 'source-reference

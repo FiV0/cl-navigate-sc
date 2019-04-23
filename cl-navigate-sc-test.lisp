@@ -18,6 +18,8 @@
                 #:file-location-end
                 #:missing-source-reference
                 #:parse-program
+                #:parse-macro-lambda-list
+                #:parse-ordinary-lambda-list
                 #:process-defun
                 #:process-function-binding
                 #:read-program
@@ -332,3 +334,59 @@
          (sr-id (nth 1 res))
          (sr-id-eval (nth 4 res)))
     (is #'eq sr-id (source-reference-parent sr-id-eval))))
+
+
+(defvar program17
+  "(defun test (a &rest rest)
+     (list a rest))")
+
+(define-test parse-ordinary-lambda-list
+  (let* ((cst (read-one-cst program17))
+         (lambda-list (cst:third cst))
+         (res (parse-ordinary-lambda-list lambda-list))
+         (cst-a (nth 0 res))
+         (cst-rest (nth 1 res)))
+    (is = 2 (length res))
+    (is #'eq 'a (cst:raw cst-a))
+    (is #'eq 'rest (cst:raw cst-rest))))
+
+(define-test parse-defun2
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst program17))
+         (res (parse-cst cst (empty-environment)))
+         (sr-a (nth 2 res))
+         (sr-a-eval (nth 5 res))
+         (sr-rest (nth 3 res))
+         (sr-rest-eval (nth 6 res)))
+    (is #'eq sr-a (source-reference-parent sr-a-eval))
+    (is #'eq sr-rest (source-reference-parent sr-rest-eval))))
+
+(defvar program18
+  "(defmacro loser ((a b) &body body)
+     `(list ,a ,b ,@body))")
+
+(define-test parse-macro-lambda-list
+  (let* ((cst (read-one-cst program18))
+         (lambda-list (cst:third cst))
+         (res (parse-macro-lambda-list lambda-list))
+         (cst-a (nth 0 res))
+         (cst-b (nth 1 res))
+         (cst-body (nth 2 res)))
+    (is = 3 (length res))
+    (is #'eq 'a (cst:raw cst-a))
+    (is #'eq 'b (cst:raw cst-b))
+    (is #'eq 'body (cst:raw cst-body))))
+
+(define-test parse-macro
+  (let* ((cst (read-one-cst program18))
+         (res (parse-cst cst (empty-environment)))
+         (sr-a (nth 2 res))
+         (sr-a-eval (nth 5 res))
+         (sr-b (nth 3 res))
+         (sr-b-eval (nth 6 res))
+         (sr-body (nth 4 res))
+         (sr-body-eval (nth 7 res)))
+    (is = 8 (length res))
+    (is #'eq sr-a (source-reference-parent sr-a-eval))
+    (is #'eq sr-b (source-reference-parent sr-b-eval))
+    (is #'eq sr-body (source-reference-parent sr-body-eval))))

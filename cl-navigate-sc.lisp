@@ -43,12 +43,12 @@
           ((symbol-information (make-symbol-information item))
            ;; TODO figure out how to best handle the case other package
            ;; for now just check if its a standard symbol
-           (parent (when (not (standard-symbol-p cst))
-                     (find-binding item env)
-                     ;(if (fboundp item)
-                         ;(error 'should-not-happen);(find-function item env)
-                         ;(find-variable item env))
-                     ))
+           (parent (handler-case (find-binding item env)
+                     (missing-source-reference
+                       (con)
+                       (declare (ignore con))
+                       nil)
+                     (condition () (error 'should-not-happen))))
            (file-location (cst:source cst)))
           (if file-location
            (values
@@ -58,10 +58,6 @@
            (values '() env)))
         (values '() env))))
 
-(defparameter +stop-parse-symbols+ '(eclector.reader:quasiquote))
-(defun stop-parse (cst)
-  "Returns true if the cst is of a raw symbol to stop parsing."
-  (and (atom-cst-p cst) (member (cst:raw cst) +stop-parse-symbols+)))
 
 (defun special-cst-p (cst)
   "Returns True if the cst is special symbol."
@@ -105,6 +101,11 @@
           ((member (cst:raw first) +special-like-function+)
            ;; special/global needs recursive here
            (process-function-call cst env))
+          ((member (cst:raw first) '(macrolet symbol-macrolet))
+           (progn
+             (format *standard-output* "WARNING: ~a is not yet implemented"
+                     (cst:raw first))
+             (values '() env)))
           (T (error 'not-yet-implemented)))))
 
 (defun standard-symbol-p (cst)
@@ -140,12 +141,14 @@
            (process-function-call cst env))
           ((eq (cst:raw first) 'defun)
            (process-defun cst env))
+          ((eq (cst:raw first) 'defmacro)
+           (process-defmacro cst env))
           (T (error 'not-yet-implemented)))))
 
 (defun parse-cons (cst env)
   "Parse a cons-cst."
   (let ((first (cst:first cst)))
-    (cond ((stop-parse first) (values '() env))
+    (cond ((stop-parse first) (parse-cst-quasiquote (cst:second cst) env))
           ((special-cst-p first) (process-special-cst cst env))
           (T (process-other-cst cst env)))))
 
@@ -161,13 +164,43 @@
            (multiple-value-bind (refs new-env)
              (parse-cst cst (cdr refs-env))
              (cons (append (car refs-env) refs) (if recursive new-env env)))))
-    (let  ((res (reduce #'helper csts :initial-value (cons '() env))))
+    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
 (defun parse-program (csts &optional (env (empty-environment)))
   "Process a program in the form of toplevel csts. Essentially just a alias for
    (parse-csts csts env T) == (parse-program csts env)"
   (parse-csts csts env T))
+
+;; following 5 forms are a compromise for macro eval in the beginning.
+
+(defparameter +stop-parse-symbols+ '(eclector.reader:quasiquote))
+(defparameter +start-parse-symbols+ '(eclector.reader:unquote
+                                      eclector.reader:unquote-splicing))
+
+(defun stop-parse (cst)
+  "Returns true if the cst is of a raw symbol to stop parsing."
+  (and (atom-cst-p cst) (member (cst:raw cst) +stop-parse-symbols+)))
+
+;;TODO incorperate this somehow into the normal workflow
+(defun parse-cst-quasiquote (cst env)
+  "Parse a quasiquoted cst."
+  (if (atom-cst-p cst)
+      (values '() env)
+      (let ((first (cst:first cst))
+            (rest-csts (cst-to-list (cst:rest cst))))
+        (if (member (cst:raw first) +start-parse-symbols+)
+            (parse-csts rest-csts env T)
+            (parse-csts-quasiquote rest-csts env T)))))
+
+(defun parse-csts-quasiquote (csts env &optional (recursive nil))
+  "Parse a list of quasiquoted expressions (csts)."
+  (flet ((helper (refs-env cst)
+           (multiple-value-bind (refs new-env)
+             (parse-cst-quasiquote cst (cdr refs-env))
+             (cons (append (car refs-env) refs) (if recursive new-env env)))))
+    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
+      (values (car res) (cdr res)))))
 
 (defun add-symbol-to-env (cst env &optional
                               (add-env-function #'add-variable-to-env))
@@ -188,8 +221,27 @@
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
 
-;; defun
+;; defmacro
 
+(defun process-defmacro (cst env)
+  "Process a defmacro declaration."
+  (let ((defmacro (cst:first cst))
+        (name (cst:second cst))
+        (lambda-list (parse-macro-lambda-list (cst:third cst)))
+        (body (resti cst 3)))
+    (let ((srefs1 (parse-atom defmacro env)))
+      (multiple-value-bind (srefs2 env2)
+        (add-symbol-to-env name env #'add-function-to-env-global)
+        (multiple-value-bind (srefs3 env3)
+          (add-symbols-to-env lambda-list (copy-environment env2))
+          (multiple-value-bind (srefs4 env4)
+            (parse-csts (cst-to-list body) (join-environments env3 env2))
+            (declare (ignore env4))
+            (values (append srefs1 srefs2 srefs3 srefs4)
+                    env2)))))))
+
+;; defun
+;TODO add optional form eval
 (defun process-defun (cst env)
   "Process a function declaration."
   (let ((defun (cst:first cst))
@@ -200,7 +252,7 @@
       (multiple-value-bind (srefs2 env2)
         (add-symbol-to-env name env #'add-function-to-env-global)
         (multiple-value-bind (srefs3 env3)
-          (add-symbols-to-env lambda-list env2)
+          (add-symbols-to-env lambda-list (copy-environment env2))
           (multiple-value-bind (srefs4 env4)
             (parse-csts (cst-to-list body) (join-environments env3 env2))
             (declare (ignore env4))
