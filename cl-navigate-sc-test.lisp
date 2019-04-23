@@ -155,9 +155,9 @@
     (is #'eq sr-x (source-reference-parent sr-form-x))
     (is #'eq sr-y (source-reference-parent sr-print-y))))
 
-(defvar program5 "(flet ((id (x) x)
-                              (id2 (x) x))
-                         (id 1))")
+(defvar *program5* "(flet ((id (x) x)
+                           (id2 (x) x))
+                      (id 1))")
 
 (define-test parse-flet
   :depends-on (parse-cst-simple eclector-read)

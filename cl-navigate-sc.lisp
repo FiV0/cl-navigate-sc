@@ -148,21 +148,30 @@
 (defun parse-cons (cst env)
   "Parse a cons-cst."
   (let ((first (cst:first cst)))
-    (cond ((stop-parse first) (parse-cst-quasiquote (cst:second cst) env))
+    (cond ((stop-parse first) (parse-cst (cst:second cst) env T))
           ((special-cst-p first) (process-special-cst cst env))
           (T (process-other-cst cst env)))))
 
-(defun parse-cst (cst env)
+(defun parse-cst (cst env &optional (quasiquoted nil))
   "Parse a cst of any form."
-  (if (atom-cst-p cst)
-      (parse-atom cst env)
-      (parse-cons cst env)))
+  (if quasiquoted
+      (if (atom-cst-p cst)
+          (values '() env)
+          (let ((first (cst:first cst))
+                (child (cst:second cst)))
+            ;; checking if to turn off quasiquotation
+            (if (member (cst:raw first) +start-parse-symbols+)
+                (parse-cst child env)
+                (parse-csts (cst-to-list cst) env T T))))
+      (if (atom-cst-p cst)
+          (parse-atom cst env)
+          (parse-cons cst env))))
 
-(defun parse-csts (csts env &optional (recursive nil))
+(defun parse-csts (csts env &optional (recursive nil) (quasiquoted nil))
   "Parse a list of expressions (csts)."
   (flet ((helper (refs-env cst)
            (multiple-value-bind (refs new-env)
-             (parse-cst cst (cdr refs-env))
+             (parse-cst cst (cdr refs-env) quasiquoted)
              (cons (append (car refs-env) refs) (if recursive new-env env)))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
@@ -172,8 +181,6 @@
    (parse-csts csts env T) == (parse-program csts env)"
   (parse-csts csts env T))
 
-;; following 5 forms are a compromise for macro eval in the beginning.
-
 (defparameter +stop-parse-symbols+ '(eclector.reader:quasiquote))
 (defparameter +start-parse-symbols+ '(eclector.reader:unquote
                                       eclector.reader:unquote-splicing))
@@ -181,26 +188,6 @@
 (defun stop-parse (cst)
   "Returns true if the cst is of a raw symbol to stop parsing."
   (and (atom-cst-p cst) (member (cst:raw cst) +stop-parse-symbols+)))
-
-;;TODO incorperate this somehow into the normal workflow
-(defun parse-cst-quasiquote (cst env)
-  "Parse a quasiquoted cst."
-  (if (atom-cst-p cst)
-      (values '() env)
-      (let ((first (cst:first cst))
-            (rest-csts (cst-to-list (cst:rest cst))))
-        (if (member (cst:raw first) +start-parse-symbols+)
-            (parse-csts rest-csts env T)
-            (parse-csts-quasiquote rest-csts env T)))))
-
-(defun parse-csts-quasiquote (csts env &optional (recursive nil))
-  "Parse a list of quasiquoted expressions (csts)."
-  (flet ((helper (refs-env cst)
-           (multiple-value-bind (refs new-env)
-             (parse-cst-quasiquote cst (cdr refs-env))
-             (cons (append (car refs-env) refs) (if recursive new-env env)))))
-    (let ((res (reduce #'helper csts :initial-value (cons '() env))))
-      (values (car res) (cdr res)))))
 
 (defun add-symbol-to-env (cst env &optional
                               (add-env-function #'add-variable-to-env))
