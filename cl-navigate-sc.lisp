@@ -223,13 +223,14 @@
 
 ;; defmacro
 
-(defun process-defmacro (cst env)
-  "Process a defmacro declaration."
-  (let ((defmacro (cst:first cst))
+(defun process-standard-def (cst env &optional (parse-lambda-list-fn
+                                                 #'parse-ordinary-lambda-list))
+  "Process a defmacro or defun definition."
+  (let ((def (cst:first cst))
         (name (cst:second cst))
-        (lambda-list (parse-macro-lambda-list (cst:third cst)))
+        (lambda-list (funcall parse-lambda-list-fn (cst:third cst)))
         (body (resti cst 3)))
-    (let ((srefs1 (parse-atom defmacro env)))
+    (let ((srefs1 (parse-atom def env)))
       (multiple-value-bind (srefs2 env2)
         (add-symbol-to-env name env #'add-function-to-env-global)
         (multiple-value-bind (srefs3 env3)
@@ -240,24 +241,15 @@
             (values (append srefs1 srefs2 srefs3 srefs4)
                     env2)))))))
 
+(defun process-defmacro (cst env)
+  "Process a defmacro declaration."
+  (process-standard-def cst env #'parse-macro-lambda-list))
+
 ;; defun
 ;TODO add optional form eval
 (defun process-defun (cst env)
   "Process a function declaration."
-  (let ((defun (cst:first cst))
-        (name (cst:second cst))
-        (lambda-list (parse-ordinary-lambda-list (cst:third cst)))
-        (body (resti cst 3)))
-    (let ((srefs1 (parse-atom defun env)))
-      (multiple-value-bind (srefs2 env2)
-        (add-symbol-to-env name env #'add-function-to-env-global)
-        (multiple-value-bind (srefs3 env3)
-          (add-symbols-to-env lambda-list (copy-environment env2))
-          (multiple-value-bind (srefs4 env4)
-            (parse-csts (cst-to-list body) (join-environments env3 env2))
-            (declare (ignore env4))
-            (values (append srefs1 srefs2 srefs3 srefs4)
-                    env2)))))))
+  (process-standard-def cst env))
 
 ;; quote
 
