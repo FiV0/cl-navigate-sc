@@ -35,6 +35,14 @@
   "Checks if the cst is of type cons."
   (eq (type-of cst) 'cst:cons-cst))
 
+(defun find-source-reference (symbol env &optional (find-fn #'find-binding))
+  "Find the source-reference of parent if present."
+  (handler-case (funcall find-fn symbol env)
+    (missing-source-reference (con)
+      (declare (ignore con))
+      nil)
+    (condition () (error 'should-not-happen))))
+
 (defun parse-atom (cst env)
   "Creates sources-references + env for an atom CST."
   (let* ((item (cst:raw cst)))
@@ -43,12 +51,7 @@
           ((symbol-information (make-symbol-information item))
            ;; TODO figure out how to best handle the case other package
            ;; for now just check if its a standard symbol
-           (parent (handler-case (find-binding item env)
-                     (missing-source-reference
-                       (con)
-                       (declare (ignore con))
-                       nil)
-                     (condition () (error 'should-not-happen))))
+           (parent (find-source-reference item env))
            (file-location (cst:source cst)))
           (if file-location
            (values
@@ -103,7 +106,7 @@
            (process-function-call cst env))
           ((member (cst:raw first) '(macrolet symbol-macrolet))
            (progn
-             (format *standard-output* "WARNING: ~a is not yet implemented"
+             (format *standard-output* "WARNING: ~a is not yet implemented!~%"
                      (cst:raw first))
              (values '() env)))
           (T (error 'not-yet-implemented)))))
@@ -125,14 +128,15 @@
         (function (cst:raw first))
         (symbol-information (make-symbol-information function))
         ;; TODO check how to test for function from external package
-        (parent (when (not (standard-symbol-p first))
-                  (find-function function env)))
+        (parent (find-source-reference function env #'find-function))
         (file-location (cst:source first))
-        (sr (make-source-reference symbol-information file-location parent)))
+        (sr (when file-location
+              (list (make-source-reference symbol-information file-location
+                                           parent)))))
     (multiple-value-bind (srefs new-env)
       (parse-csts (cst-to-list (cst:rest cst)) env)
       (declare (ignore new-env))
-      (values (cons sr srefs) env))))
+      (values (append sr srefs) env))))
 
 (defun process-other-cst (cst env)
   "Process a CST that is not special"
@@ -143,7 +147,10 @@
            (process-defun cst env))
           ((eq (cst:raw first) 'defmacro)
            (process-defmacro cst env))
-          (T (error 'not-yet-implemented)))))
+          (T (progn
+               (format *standard-output* "WARNING: ~a is not yet implemented!~%"
+                       (cst:raw first))
+               (values '() env))))))
 
 (defun parse-cons (cst env)
   "Parse a cons-cst."
@@ -253,7 +260,8 @@
             (parse-atom val env)
             (declare (ignore env2))
             (values (append srefs1 srefs2) env))
-          (error 'not-yet-implemented)))))
+          ;;TODO
+          (values '() env)))))
 
 ;; eval-when
 

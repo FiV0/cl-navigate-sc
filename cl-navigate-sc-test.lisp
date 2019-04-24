@@ -173,7 +173,7 @@
     (is #'eq sr-x-2 (source-reference-parent sr-eval-x-2))))
 
 (defvar *program6* "(labels ((id (x) x)
-                                (id2 (x) (id x)))
+                             (id2 (x) (id x)))
                          (id2 1))")
 
 (define-test parse-labels
@@ -193,7 +193,7 @@
 (define-test parse-function-binding
   :depends-on (parse-cst-simple eclector-read)
   ;; cst is (id (x) x)
-  (let* ((cst (cst:first (cst:first (cst:rest (read-one-cst program5))))))
+  (let* ((cst (cst:first (cst:first (cst:rest (read-one-cst *program5*))))))
     (multiple-value-bind (srefs env)
       (process-function-binding cst (empty-environment))
       (declare (ignore srefs))
@@ -321,7 +321,7 @@
 
 (defvar *program16*
   "(defun id (x) x)
-     (id 1)")
+   (id 1)")
 
 (defun read-program-from-string (str)
   (with-input-from-string (is str)
@@ -408,3 +408,21 @@
     (is #'eq sr-a (source-reference-parent sr-a-eval))
     (is #'eq sr-b (source-reference-parent sr-b-eval))
     (is #'eq sr-body (source-reference-parent sr-body-eval))))
+
+(defvar *program20*
+  "(in-package :hunchentoot)
+   (defclass test () ())")
+
+(define-test test-in-package-defclass
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((csts (read-program-from-string *program20*))
+         (res (parse-program csts)))
+    ;;TODO change once implemented
+    (false res)))
+
+(define-test parse-whole-file
+  (let* ((csts (parse-from-file *filepath1*))
+         (res (parse-program csts)))
+    (print res)
+    (is #'eq (type-of (car csts)) 'cst:cons-cst)
+    (true res)))

@@ -10,7 +10,8 @@
   :license  "MIT Licence"
   :version "0.0.1"
   :serial t
-  :depends-on (#:quicklisp
+  :depends-on (#:asdf
+               #:quicklisp
                #:concrete-syntax-tree
                #:eclector
                #:eclector-concrete-syntax-tree
