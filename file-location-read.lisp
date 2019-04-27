@@ -100,6 +100,46 @@
                    :end-line (car end-line-column)
                    :end (cdr end-line-column))))
 
+;;TODO add this temporary option into client
+(defparameter *temporary-package* (make-package 'temporary))
+
+(defmethod eclector.reader:interpret-symbol
+  ((client cst-source-position) input-stream (package-indicator null)
+                                symbol-name internp)
+  (intern symbol-name *temporary-package*))
+
+(defmethod eclector.reader:interpret-symbol
+  ((client cst-source-position) input-stream package-indicator symbol-name
+                                internp)
+  (declare (ignore internp))
+  (let ((package (case package-indicator
+                   (:current *package*)
+                   (:keyword (find-package "KEYWORD"))
+                   (t        (or (find-package package-indicator)
+                                 (eclector.reader::%reader-error
+                                  input-stream
+                                  'eclector.reader:package-does-not-exist
+                                  :package-name package-indicator))))))
+    (multiple-value-bind (symbol status)
+      (find-symbol symbol-name package)
+      ;(format *standard-output* "Symbol ~a Package ~a Status ~a.~%"
+              ;symbol-name package status)
+      (cond ((null status)
+             ;; TODO see above
+             ;(eclector.reader::%reader-error
+               ;input-stream 'eclector.reader:symbol-does-not-exist
+               ;:package package
+               ;:symbol-name symbol-name)
+             (intern symbol-name *temporary-package*))
+            ((eq status :internal)
+             ;(eclector.reader::%reader-error
+               ;input-stream 'eclector.reader:symbol-is-not-external
+               ;:package package
+               ;:symbol-name symbol-name)
+             symbol)
+            (t
+             symbol)))))
+
 (defun read-program (is)
   "Reads a source-file from the stream IS. Assumes all dependent packages have
    been loaded."
@@ -109,7 +149,7 @@
                            :file-position-to-file-location
                            (create-file-position-to-file-location-function is))))
      (loop for exp = (eclector.parse-result:read client is nil eof)
-           while (not (equal eof exp))
+           until (equal exp eof)
            collect exp))))
 
 (defun parse-from-file (filepath)
@@ -168,8 +208,6 @@
                    :end-line (car end-line-column)
                    :end (cdr end-line-column))))
 
-(defparameter *temporary-package* (make-package 'temporary))
-
 (defmethod eclector.reader:interpret-symbol
   ((client symbol-location-client) input-stream (package-indicator null)
                                    symbol-name internp)
@@ -203,7 +241,6 @@
                  ((eq status :internal)
                   (make-symbol-information symbol
                                            'symbol-is-not-external))
-
                  (t (make-symbol-information symbol)))))))
 
 (define-condition feature-expression-malformed () ())

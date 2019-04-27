@@ -4,16 +4,13 @@
   Author: Finn Völkel <firstname.lastname@gmail.com>
 |#
 
-#|
-  Every function in this file works on a cst.
-  The source-reference are currently returned in the order they are encountered.
-  Explain the file....
-|#
+;; Every function in this file works on a cst.
+;; The source-reference are currently returned in the order they are
+;; encountered.
+;; Explain the file....
+
 
 (in-package #:cl-navigate-sc)
-
-;; use it to check the standard
-(ql:quickload :alexandria)
 
 (define-condition not-yet-implemented ()
   ())
@@ -162,14 +159,16 @@
 (defun parse-cst (cst env &optional (quasiquoted nil))
   "Parse a cst of any form."
   (if quasiquoted
-      (if (atom-cst-p cst)
-          (values '() env)
-          (let ((first (cst:first cst))
-                (child (cst:second cst)))
-            ;; checking if to turn off quasiquotation
-            (if (member (cst:raw first) +start-parse-symbols+)
-                (parse-cst child env)
-                (parse-csts (cst-to-list cst) env T T))))
+      (cond ((atom-cst-p cst) (values '() env))
+            ;;TODO check if this is needed
+            ((cst:null cst) (values '() env))
+            ((cst:null (cst:rest cst)) (parse-cst (cst:first cst) env T))
+            (T (let ((first (cst:first cst))
+                     (child (cst:second cst)))
+                 ;; checking if to turn off quasiquotation
+                 (if (member (cst:raw first) +start-parse-symbols+)
+                     (parse-cst child env)
+                     (parse-csts (cst-to-list cst) env T T)))))
       (if (atom-cst-p cst)
           (parse-atom cst env)
           (parse-cons cst env))))
@@ -412,15 +411,18 @@
 (defun process-binding (cst env &optional
                             (add-env-function #'add-variable-to-env))
   "Process one binding of the form (binding form)."
-  (let ((binding-cst (cst:first cst))
-        (form-cst (cst:first (cst:rest cst))))
-    ;; TODO add global special stuff from form
-    (multiple-value-bind (sref new-env1)
-      (add-symbol-to-env binding-cst env add-env-function)
-      (multiple-value-bind (srefs new-env2)
-        (parse-cst form-cst (copy-environment env))
-        (declare (ignore new-env2))
-        (values (append sref srefs) new-env1)))))
+  ;; Case where the binidng has no form.
+  (if (atom-cst-p cst)
+      (add-symbol-to-env cst env add-env-function)
+      (let ((binding-cst (cst:first cst))
+            (form-cst (cst:first (cst:rest cst))))
+        ;; TODO add global special stuff from form
+        (multiple-value-bind (sref new-env1)
+          (add-symbol-to-env binding-cst env add-env-function)
+          (multiple-value-bind (srefs new-env2)
+            (parse-cst form-cst (copy-environment env))
+            (declare (ignore new-env2))
+            (values (append sref srefs) new-env1))))))
 
 (defun process-bindings (csts env &optional (recursive nil))
   "Process a list of binding csts."

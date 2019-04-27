@@ -9,6 +9,7 @@
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
   (:import-from #:cl-navigate-sc
+                #:cst-source-position
                 #:add-variable-to-env-global
                 #:dummy-source-reference
                 #:find-binding
@@ -22,6 +23,7 @@
                 #:parse-ordinary-lambda-list
                 #:process-defun
                 #:process-function-binding
+                #:process-system
                 #:read-program
                 #:source-reference-parent
                 #:symbol-information-symbol)
@@ -33,7 +35,6 @@
 ;;Working with hunchentoot as an example. The request.lisp file below is from
 ;;hunchentoot.
 (ql:quickload :hunchentoot)
-(ql:quickload :alexandria)
 
 ;; file-location-read.lisp
 (defvar *filepath* #P"./tmp/lisp-test-file.lisp")
@@ -82,6 +83,14 @@
                            :file-position-to-file-location
                            (create-file-position-to-file-location-function is))
             is))))
+
+;(defparameter *programb* "(flatten '(1 (2 3) 4))")
+
+;(with-input-from-string (is *programb*)
+  ;(eclector.parse-result:read
+    ;(make-instance 'symbol-location-client
+                   ;:file-position-to-file-location
+                   ;(create-file-position-to-file-location-function is)) is))
 
 (define-test parse-from-file
   :depends-on (eclector-read)
@@ -137,6 +146,24 @@
          (sr-list-y (nth 7 res)))
     (is #'eq sr-x (source-reference-parent sr-print-x))
     (is #'eq sr-y (source-reference-parent sr-list-y))))
+
+(defvar *program3b* "
+  (let (i
+        (b 2))
+    (list i b))")
+
+(define-test parse-let-nil-binding
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst *program3b*))
+         (res (parse-cst cst (empty-environment)))
+         ;; TODO this is a bad setup as it makes assumptions about the
+         ;; order of the source references
+         (sr-i (nth 1 res))
+         (sr-eval-i (nth 4 res))
+         (sr-b (nth 2 res))
+         (sr-eval-b (nth 5 res)))
+    (is #'eq sr-i (source-reference-parent sr-eval-i))
+    (is #'eq sr-b (source-reference-parent sr-eval-b))))
 
 (defvar *program4* "(let* ((x 1)
                          (y x))
@@ -409,6 +436,25 @@
     (is #'eq sr-b (source-reference-parent sr-b-eval))
     (is #'eq sr-body (source-reference-parent sr-body-eval))))
 
+(defvar *program19b*
+  "(defmacro loser ((a b) &body body)
+     `(list ,a ,b ,@body))
+   (loser (1 2) (3 4))")
+
+(define-test parse-macro
+  (let* ((cst (read-one-cst *program19*))
+         (res (parse-cst cst (empty-environment)))
+         (sr-a (nth 2 res))
+         (sr-a-eval (nth 5 res))
+         (sr-b (nth 3 res))
+         (sr-b-eval (nth 6 res))
+         (sr-body (nth 4 res))
+         (sr-body-eval (nth 7 res)))
+    (is = 8 (length res))
+    (is #'eq sr-a (source-reference-parent sr-a-eval))
+    (is #'eq sr-b (source-reference-parent sr-b-eval))
+    (is #'eq sr-body (source-reference-parent sr-body-eval))))
+
 (defvar *program20*
   "(in-package :hunchentoot)
    (defclass test () ())")
@@ -420,9 +466,42 @@
     ;;TODO change once implemented
     (false res)))
 
-(define-test parse-whole-file
-  (let* ((csts (parse-from-file *filepath1*))
+(defvar *program21* "
+  (defmacro with-lock-held ((lock) &body body)
+    `(bt:with-lock-held (,lock) ,@body))")
+
+(define-test test-defmacro-with-unquote-inside-list
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((csts (read-program-from-string *program21*))
          (res (parse-program csts)))
-    (print res)
-    (is #'eq (type-of (car csts)) 'cst:cons-cst)
+    (true res)))
+
+(defparameter *filepath2*
+  "/home/fv/Code/CL/hunchentoot/session.lisp")
+
+;; TODO really bad test as this even on the code location in hunchentoot
+(define-test parse-whole-file
+  (let* ((csts (prog2
+                 (in-package :hunchentoot)
+                 (parse-from-file *filepath2*)
+                 (in-package :cl-navigate-sc-test)))
+         (cst1 (nth 14 csts))
+         (with-session-lock-held-symbol (cst:raw (cst:first (cst:fifth cst1))))
+         (cst2 (nth 16 csts))
+         (only-once-symbol (cst:raw (cst:first (cst:sixth cst2))))
+         (res (parse-program csts)))
+    (is #'eq with-session-lock-held-symbol 'hunchentoot::with-session-lock-held)
+    (is #'eq
+        (symbol-package with-session-lock-held-symbol)
+        (find-package :hunchentoot))
+    (is #'eq only-once-symbol 'alexandria:once-only)
+    (is #'eq
+        (symbol-package only-once-symbol)
+        (find-package :alexandria))
+    (true res)))
+
+;; tests for process project
+
+(define-test test-process-system
+  (let ((res (process-system :hunchentoot nil :hunchentoot)))
     (true res)))

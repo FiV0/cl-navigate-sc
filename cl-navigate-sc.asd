@@ -11,6 +11,7 @@
   :version "0.0.1"
   :serial t
   :depends-on (#:asdf
+               #:cl-fad
                #:quicklisp
                #:concrete-syntax-tree
                #:eclector
@@ -21,5 +22,6 @@
                (:file "file-location-read")
                (:file "environment")
                (:file "lambda-list-helpers")
-               (:file "cl-navigate-sc"))
+               (:file "cl-navigate-sc")
+               (:file "process-project"))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-navigate-sc-test))))
