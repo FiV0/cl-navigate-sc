@@ -86,8 +86,12 @@
   ((file-position-to-file-location :initarg :file-position-to-file-location
                                    :reader cst-source-position-fp-to-fl
                                    :documentation
-                                   "A function that transforms a file-postion to
-                                    a line,column pair.")))
+                                   "A function that transforms a
+                                    file-postion to a line,column pair.")
+   (current-package :initarg :current-package
+                    :accessor cst-source-position-current-package
+                    :initform *package*
+                    :documentation "The current package when reading a file.")))
 
 (defmethod eclector.parse-result:make-source-range
   ((client cst-source-position) start end)
@@ -99,6 +103,36 @@
                    :start (cdr start-line-column)
                    :end-line (car end-line-column)
                    :end (cdr end-line-column))))
+
+(define-condition change-package-error ()
+  ())
+
+(defun change-package (client input-stream)
+  "Change the default package of client when an IN-PACKAGE token has been read
+   from input-stream."
+  (let ((cur-position (file-position input-stream))
+        (package-indicator
+          (make-array 100
+                      :element-type 'character
+                      :adjustable t
+                      :fill-pointer 0))
+        (package-indicator-capitalized
+          (make-array 100
+                      :element-type 'character
+                      :adjustable t
+                      :fill-pointer 0)))
+    (loop for c = (read-char input-stream)
+          until (not (member c '(#\Space #\: #\#)))
+          finally (unread-char c input-stream))
+    (loop for c = (read-char input-stream)
+          until (or (eq c #\Space) (eq c #\) ))
+          do (vector-push-extend c package-indicator))
+    (unless (file-position input-stream cur-position)
+      (error 'change-package-error))
+    (format package-indicator-capitalized "~@:(~a~)" package-indicator)
+    (setf (cst-source-position-current-package client)
+          (find-package package-indicator-capitalized))
+    client))
 
 ;;TODO add this temporary option into client
 (defparameter *temporary-package* (make-package 'temporary))
@@ -112,8 +146,11 @@
   ((client cst-source-position) input-stream package-indicator symbol-name
                                 internp)
   (declare (ignore internp))
+  ;; TODO remove this big hack
+  (when (equal symbol-name "IN-PACKAGE")
+    (change-package client input-stream))
   (let ((package (case package-indicator
-                   (:current *package*)
+                   (:current (cst-source-position-current-package client))
                    (:keyword (find-package "KEYWORD"))
                    (t        (or (find-package package-indicator)
                                  (eclector.reader::%reader-error
@@ -126,16 +163,8 @@
               ;symbol-name package status)
       (cond ((null status)
              ;; TODO see above
-             ;(eclector.reader::%reader-error
-               ;input-stream 'eclector.reader:symbol-does-not-exist
-               ;:package package
-               ;:symbol-name symbol-name)
              (intern symbol-name *temporary-package*))
             ((eq status :internal)
-             ;(eclector.reader::%reader-error
-               ;input-stream 'eclector.reader:symbol-is-not-external
-               ;:package package
-               ;:symbol-name symbol-name)
              symbol)
             (t
              symbol)))))
@@ -175,6 +204,21 @@
   (make-instance 'symbol-information
                  :symbol symbol
                  :error error))
+
+(defmethod eclector.reader:check-feature-expression
+  ((client cst-source-position) (feature-expression t))
+  (declare (ignore client))
+  (declare (ignore feature-expression))
+  ;;TODO
+  ;(unless (or (symbol-information-p feature-expression)
+              ;(and (consp feature-expression) (every #'symbol-information-p
+                                                     ;feature-expression)))
+    ;(error 'feature-expression-malformed))
+  )
+
+;(find-method #'eclector.reader:check-feature-expression
+             ;'() (mapcar #'find-class '(cst-source-position t)))
+;(remove-method #'eclector.reader:check-feature-expression *)
 
 ;;;;;;;;;;
 ;;;
@@ -252,3 +296,4 @@
               (and (consp feature-expression) (every #'symbol-information-p
                                                      feature-expression)))
     (error 'feature-expression-malformed)))
+

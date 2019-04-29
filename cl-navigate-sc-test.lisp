@@ -9,6 +9,7 @@
   (:use #:cl #:cl-navigate-sc #:parachute)
   (:shadow #:run)
   (:import-from #:cl-navigate-sc
+                #:change-package
                 #:cst-source-position
                 #:add-variable-to-env-global
                 #:dummy-source-reference
@@ -476,15 +477,23 @@
          (res (parse-program csts)))
     (true res)))
 
+(define-test change-package
+  (let* ((test-string ":hunchentoot)")
+         (client (make-instance 'cl-navigate-sc::cst-source-position
+                                :file-position-to-file-location nil
+                                :current-package *package*))
+         (res-client (with-input-from-string (is test-string)
+                       (change-package client is))))
+    (is #'eq
+        (find-package :hunchentoot)
+        (cl-navigate-sc::cst-source-position-current-package res-client))))
+
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
 
 ;; TODO really bad test as this even on the code location in hunchentoot
 (define-test parse-whole-file
-  (let* ((csts (prog2
-                 (in-package :hunchentoot)
-                 (parse-from-file *filepath2*)
-                 (in-package :cl-navigate-sc-test)))
+  (let* ((csts (parse-from-file *filepath2*))
          (cst1 (nth 14 csts))
          (with-session-lock-held-symbol (cst:raw (cst:first (cst:fifth cst1))))
          (cst2 (nth 16 csts))
@@ -503,5 +512,5 @@
 ;; tests for process project
 
 (define-test test-process-system
-  (let ((res (process-system :hunchentoot nil :hunchentoot)))
+  (let ((res (process-system :hunchentoot nil)))
     (true res)))

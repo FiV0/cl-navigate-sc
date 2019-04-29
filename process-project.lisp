@@ -63,28 +63,27 @@
       (extract-files-recursive system))))
 
 ;; TODO sovle the in-package issue
-(defun process-source-file (file env system-name package-name)
+(defun process-source-file (file env system-name)
   "Parses a file of a system. For now also the package is given."
   (format *standard-output* "Processing file ~a in system ~a.~%"
           (asdf/component:component-pathname file)
           system-name)
   (let* ((filepath (asdf/component:component-pathname file))
-         (csts (prog2
-                 (setf *package* (find-package package-name))
+         (csts (progn
                  (cl-navigate-sc:parse-from-file filepath)
-                 (setf *package* (find-package :cl-navigate-sc))))
+                 ))
          (src-refs (parse-program csts env))
          (path (cl-fad:pathname-directory-pathname filepath))
          (filename (asdf/component:component-relative-pathname file)))
     (make-file-source-references src-refs system-name path filename)))
 
-(defun process-system (system-name path package-name)
+(defun process-system (system-name path)
   "Process a whole system and returns the source references."
   (setup-system system-name path)
   (let ((source-files (get-source-files system-name))
         (env (empty-environment))
         (res '()))
     (dolist (source-file source-files)
-      (push (process-source-file source-file env system-name package-name) res))
+      (push (process-source-file source-file env system-name) res))
     (clean-system system-name)
     (nreverse res)))
