@@ -14,19 +14,18 @@
    (system-name :initarg :system-name
                 :accessor :file-system-anme
                 :documentation "System the source references are part of.")
-   (path :initarg :path
-         :accessor :file-path
-         :documentation "Path to the file from the repo root.")
-   (filename :initarg :filename
-             :accessor :file-filename
-             :documentation "Filename of the file")))
+   ;(path :initarg :path
+         ;:accessor :file-path
+         ;:documentation "Path to the file from the repo root.")
+   (filepath :initarg :filepath
+             :accessor :file-filepath
+             :documentation "Filepaht of the file")))
 
-(defun make-file-source-references (srs system-name path filename)
+(defun make-file-source-references (srs system-name filepath)
   (make-instance 'file-source-references
                  :source-references srs
                  :system-name system-name
-                 :path path
-                 :filename filename))
+                 :filepath filepath))
 
 ;;general process
 ;; add path to registry
@@ -62,28 +61,29 @@
                      (list component)))))
       (extract-files-recursive system))))
 
+(defun remove-path-to-root (path-to-root filepath)
+  (subseq (namestring filepath) (length (namestring path-to-root))))
+
 ;; TODO sovle the in-package issue
-(defun process-source-file (file env system-name)
+(defun process-source-file (file env system-name path-to-root)
   "Parses a file of a system. For now also the package is given."
   (format *standard-output* "Processing file ~a in system ~a.~%"
           (asdf/component:component-pathname file)
           system-name)
   (let* ((filepath (asdf/component:component-pathname file))
-         (csts (progn
-                 (cl-navigate-sc:parse-from-file filepath)
-                 ))
+         (csts (cl-navigate-sc:parse-from-file filepath))
          (src-refs (parse-program csts env))
-         (path (cl-fad:pathname-directory-pathname filepath))
-         (filename (asdf/component:component-relative-pathname file)))
-    (make-file-source-references src-refs system-name path filename)))
+         (relative-filepath (remove-path-to-root path-to-root filepath)))
+    (make-file-source-references src-refs system-name relative-filepath)))
 
-(defun process-system (system-name path)
+(defun process-system (system-name path-to-root)
   "Process a whole system and returns the source references."
-  (setup-system system-name path)
+  ;;TODO add path-to-root
+  (setup-system system-name nil)
   (let ((source-files (get-source-files system-name))
         (env (empty-environment))
         (res '()))
     (dolist (source-file source-files)
-      (push (process-source-file source-file env system-name) res))
+      (push (process-source-file source-file env system-name path-to-root) res))
     (clean-system system-name)
     (nreverse res)))

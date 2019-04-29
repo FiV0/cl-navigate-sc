@@ -512,5 +512,5 @@
 ;; tests for process project
 
 (define-test test-process-system
-  (let ((res (process-system :hunchentoot nil)))
+  (let ((res (process-system :hunchentoot "/home/fv/Code/CL/hunchentoot/")))
     (true res)))
