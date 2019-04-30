@@ -169,6 +169,16 @@
             (t
              symbol)))))
 
+(defmethod eclector.reader:check-feature-expression
+  ((client cst-source-position) (feature-expression t))
+  ;;TODO
+  (declare (ignore client))
+  (declare (ignore feature-expression)))
+
+;(find-method #'eclector.reader:check-feature-expression
+             ;'() (mapcar #'find-class '(cst-source-position t)))
+;(remove-method #'eclector.reader:check-feature-expression *)
+
 (defun read-program (is)
   "Reads a source-file from the stream IS. Assumes all dependent packages have
    been loaded."
@@ -205,20 +215,6 @@
                  :symbol symbol
                  :error error))
 
-(defmethod eclector.reader:check-feature-expression
-  ((client cst-source-position) (feature-expression t))
-  (declare (ignore client))
-  (declare (ignore feature-expression))
-  ;;TODO
-  ;(unless (or (symbol-information-p feature-expression)
-              ;(and (consp feature-expression) (every #'symbol-information-p
-                                                     ;feature-expression)))
-    ;(error 'feature-expression-malformed))
-  )
-
-;(find-method #'eclector.reader:check-feature-expression
-             ;'() (mapcar #'find-class '(cst-source-position t)))
-;(remove-method #'eclector.reader:check-feature-expression *)
 
 ;;;;;;;;;;
 ;;;
@@ -296,4 +292,3 @@
               (and (consp feature-expression) (every #'symbol-information-p
                                                      feature-expression)))
     (error 'feature-expression-malformed)))
-

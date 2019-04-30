@@ -43,8 +43,7 @@
   "Clean up after a system has been loaded with SETUP-SYSTEM."
   ;; TODO check if quicklisp remains intact
   ;(ql:uninstall system-name)
-  (declare (ignore system-name))
-  (asdf:clear-source-registry))
+  (asdf:clear-system system-name))
 
 (defun get-source-files (system-name)
   "Gets the source files in order of dependency for a "

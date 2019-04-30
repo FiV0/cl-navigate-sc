@@ -16,4 +16,5 @@
            #:parse-from-file
            #:empty-environment
            #:parse-cst
-           #:parse-csts))
+           #:parse-csts
+           #:process-system))
