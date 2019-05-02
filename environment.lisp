@@ -2,7 +2,7 @@
 
 (in-package #:cl-navigate-sc)
 
-(defclass source-reference (symbol-information file-location)
+(defclass source-reference (symbol-information source-location)
   ((source-reference :initarg :parent
                      :accessor source-reference-parent
                      :documentation "EQ to itself if the symbol is also the
@@ -13,15 +13,17 @@
   (setf (source-reference-parent source-reference) parent)
   source-reference)
 
-(defun make-source-reference (symbol-information file-location
+(defun make-source-reference (symbol-information source-location
                                                  &optional (parent nil))
   (let ((instance
           (make-instance 'source-reference
                          :parent parent
-                         :start-line (file-location-start-line file-location)
-                         :end-line (file-location-end-line file-location)
-                         :start (file-location-start file-location)
-                         :end (file-location-end file-location)
+                         :start-line (file-location-start-line source-location)
+                         :end-line (file-location-end-line source-location)
+                         :start (file-location-start source-location)
+                         :end (file-location-end source-location)
+                         :source-filename
+                         (source-location-source-file source-location)
                          :symbol (symbol-information-symbol symbol-information)
                          :error (symbol-information-error symbol-information))))
     ;(if parent

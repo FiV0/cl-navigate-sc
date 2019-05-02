@@ -35,7 +35,6 @@
 
 ;;Working with hunchentoot as an example. The request.lisp file below is from
 ;;hunchentoot.
-(ql:quickload :hunchentoot)
 
 ;; file-location-read.lisp
 (defvar *filepath* #P"./tmp/lisp-test-file.lisp")
@@ -80,7 +79,7 @@
 (define-test eclector-read
   (true (with-input-from-string (is *program*)
           (eclector.parse-result:read
-            (make-instance 'symbol-location-client
+            (make-instance 'cst-source-position
                            :file-position-to-file-location
                            (create-file-position-to-file-location-function is))
             is))))

@@ -91,18 +91,23 @@
    (current-package :initarg :current-package
                     :accessor cst-source-position-current-package
                     :initform *package*
-                    :documentation "The current package when reading a file.")))
+                    :documentation "The current package when reading a file.")
+   (current-file :initarg :current-file
+                 :accessor cst-source-position-current-file
+                 :initform nil
+                 :documentation "The current file being processed.")))
 
 (defmethod eclector.parse-result:make-source-range
   ((client cst-source-position) start end)
   (let* ((location-function (cst-source-position-fp-to-fl client))
          (start-line-column (funcall location-function start))
          (end-line-column (funcall location-function end)))
-    (make-instance 'file-location
+    (make-instance 'source-location
                    :start-line (car start-line-column)
                    :start (cdr start-line-column)
                    :end-line (car end-line-column)
-                   :end (cdr end-line-column))))
+                   :end (cdr end-line-column)
+                   :source-filename (cst-source-position-current-file client))))
 
 (define-condition change-package-error ()
   ())
@@ -179,22 +184,25 @@
              ;'() (mapcar #'find-class '(cst-source-position t)))
 ;(remove-method #'eclector.reader:check-feature-expression *)
 
-(defun read-program (is)
+;;TODO cleanup the filepaht thing in the two functions below
+
+(defun read-program (is &optional (filepath nil))
   "Reads a source-file from the stream IS. Assumes all dependent packages have
    been loaded."
   (alexandria:with-gensyms (eof)
     (let ((client
             (make-instance 'cst-source-position
                            :file-position-to-file-location
-                           (create-file-position-to-file-location-function is))))
+                           (create-file-position-to-file-location-function is)
+                           :current-file filepath)))
      (loop for exp = (eclector.parse-result:read client is nil eof)
            until (equal exp eof)
            collect exp))))
 
-(defun parse-from-file (filepath)
+(defun parse-from-file (filepath &optional (relative-filepath nil))
   "Parses a whole file into a list of expressions."
   (with-open-file (st filepath)
-    (read-program st)))
+    (read-program st relative-filepath)))
 
 (defclass symbol-information ()
   ((symbol :initarg :symbol

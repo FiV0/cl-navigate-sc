@@ -12,6 +12,6 @@
   :description "A library for extracting source code information from Common Lisp files.
 Unit tests package."
   :components ((:file "cl-navigate-sc-test"))
-  :depends-on (:cl-navigate-sc :parachute)
+  :depends-on (:cl-navigate-sc :parachute :hunchentoot)
   :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test
                                                   :cl-navigate-sc-test)))

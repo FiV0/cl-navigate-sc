@@ -2,19 +2,33 @@
 
 (defpackage #:cl-navigate-sc
   (:use #:cl)
+  (:nicknames #:nav)
   (:export #:cl-navigate-sc
+           ;; definitely needed
            #:file-position-error
            #:file-location
+           #:file-location-start-line
+           #:file-location-end-line
+           #:file-location-start
+           #:file-location-end
+           #:source-location
+           #:source-location-source-file
+           #:process-system
+           #:symbol-information
+           #:symbol-information-symbol
+           #:symbol-information-error
+           #:source-reference
+           #:source-reference-parent
+           ;; TO CHECK
            #:source-location
            #:calculate-line-breaks
            #:find-if-consecutive
            #:file-position-to-location
            #:symbol-location-client
-           #:symbol-information
            #:create-file-position-to-file-location-function
            #:read-program
            #:parse-from-file
            #:empty-environment
            #:parse-cst
            #:parse-csts
-           #:process-system))
+           ))

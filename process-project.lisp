@@ -39,10 +39,11 @@
     (push path asdf:*central-registry*))
   (asdf:load-system system-name))
 
-(defun clean-system (system-name)
+(defun clean-system (system-name path)
   "Clean up after a system has been loaded with SETUP-SYSTEM."
   ;; TODO check if quicklisp remains intact
-  ;(ql:uninstall system-name)
+  (when path
+    (pop asdf:*central-registry*))
   (asdf:clear-system system-name))
 
 (defun get-source-files (system-name)
@@ -70,9 +71,9 @@
           (asdf/component:component-pathname file)
           system-name)
   (let* ((filepath (asdf/component:component-pathname file))
-         (csts (cl-navigate-sc:parse-from-file filepath))
-         (src-refs (parse-program csts env))
-         (relative-filepath (remove-path-to-root path-to-root filepath)))
+         (relative-filepath (remove-path-to-root path-to-root filepath))
+         (csts (cl-navigate-sc:parse-from-file filepath relative-filepath))
+         (src-refs (parse-program csts env)))
     (make-file-source-references src-refs system-name relative-filepath)))
 
 (defun process-system (system-name path-to-root)
@@ -84,5 +85,5 @@
         (res '()))
     (dolist (source-file source-files)
       (push (process-source-file source-file env system-name path-to-root) res))
-    (clean-system system-name)
+    (clean-system system-name nil)
     (nreverse res)))
