@@ -13,6 +13,8 @@
            #:file-location-end
            #:source-location
            #:source-location-source-filepath
+           #:source-references-wrapper
+           #:wrapper-source-references
            #:process-system
            #:symbol-information
            #:symbol-information-symbol

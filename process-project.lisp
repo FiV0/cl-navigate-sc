@@ -6,9 +6,12 @@
 
 (in-package #:cl-navigate-sc)
 
-(defclass file-source-references ()
+;; TODO system-name and filepath have somehow been made redundant by the fact
+;; that  filepath is now part of source-location and the system name also known
+;; when processing files
+(defclass source-references-wrapper ()
   ((source-references :initarg :source-references
-                      :accessor file-source-references
+                      :accessor wrapper-source-references
                       :initform '()
                       :documentation "List of source references for a file.")
    (system-name :initarg :system-name
@@ -22,7 +25,7 @@
              :documentation "Filepaht of the file")))
 
 (defun make-file-source-references (srs system-name filepath)
-  (make-instance 'file-source-references
+  (make-instance 'source-references-wrapper
                  :source-references srs
                  :system-name system-name
                  :filepath filepath))

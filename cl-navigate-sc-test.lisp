@@ -98,11 +98,12 @@
 
 ;; enviroment.lisp testing
 (define-test set-get-environment
-  (let* ((fl (make-instance 'file-location
+  (let* ((fl (make-instance 'source-location
                             :start-line 1
                             :end-line 2
                             :start 1
-                            :end 2))
+                            :end 2
+                            :source-filepath nil))
          (si (cl-navigate-sc::make-symbol-information
                'test))
          (sr (cl-navigate-sc::make-source-reference si fl))
