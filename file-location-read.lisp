@@ -25,8 +25,8 @@
         :documentation "The end column of the file location (exclusive).")))
 
 (defclass source-location (file-location)
-  ((source-filename :initarg :source-filename
-                    :accessor source-location-source-file
+  ((source-filepath :initarg :source-filepath
+                    :accessor source-location-source-filepath
                     :documentation "The filename of the source file.")))
 
 (defun calculate-line-breaks (is)
@@ -107,7 +107,7 @@
                    :start (cdr start-line-column)
                    :end-line (car end-line-column)
                    :end (cdr end-line-column)
-                   :source-filename (cst-source-position-current-file client))))
+                   :source-filepath (cst-source-position-current-file client))))
 
 (define-condition change-package-error ()
   ())

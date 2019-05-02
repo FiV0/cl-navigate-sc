@@ -22,8 +22,8 @@
                          :end-line (file-location-end-line source-location)
                          :start (file-location-start source-location)
                          :end (file-location-end source-location)
-                         :source-filename
-                         (source-location-source-file source-location)
+                         :source-filepath
+                         (source-location-source-filepath source-location)
                          :symbol (symbol-information-symbol symbol-information)
                          :error (symbol-information-error symbol-information))))
     ;(if parent
