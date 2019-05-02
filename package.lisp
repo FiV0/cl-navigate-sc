@@ -12,7 +12,7 @@
            #:file-location-start
            #:file-location-end
            #:source-location
-           #:source-location-source-file
+           #:source-location-source-filepath
            #:process-system
            #:symbol-information
            #:symbol-information-symbol
