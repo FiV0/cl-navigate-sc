@@ -512,5 +512,8 @@
 ;; tests for process project
 
 (define-test test-process-system
-  (let ((res (process-system :hunchentoot "/home/fv/Code/CL/hunchentoot/")))
-    (true res)))
+  (let* ((res (process-system :hunchentoot "/home/fv/Code/CL/hunchentoot/"))
+         (src-refs (alexandria:flatten
+                     (mapcar #'wrapper-source-references res))))
+    (dolist (src-ref src-refs)
+      (true (symbolp (symbol-information-symbol src-ref))))))
