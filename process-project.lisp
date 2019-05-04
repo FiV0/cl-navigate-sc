@@ -65,6 +65,7 @@
       (extract-files-recursive system))))
 
 (defun remove-path-to-root (path-to-root filepath)
+  (assert (and path-to-root filepath))
   (subseq (namestring filepath) (length (namestring path-to-root))))
 
 ;; TODO sovle the in-package issue
@@ -75,18 +76,19 @@
           system-name)
   (let* ((filepath (asdf/component:component-pathname file))
          (relative-filepath (remove-path-to-root path-to-root filepath))
-         (csts (cl-navigate-sc:parse-from-file filepath relative-filepath))
+         (csts (parse-from-file filepath relative-filepath))
          (src-refs (parse-program csts env)))
     (make-file-source-references src-refs system-name relative-filepath)))
 
 (defun process-system (system-name path-to-root)
   "Process a whole system and returns the source references."
   ;;TODO add path-to-root
-  (setup-system system-name nil)
-  (let ((source-files (get-source-files system-name))
-        (env (empty-environment))
-        (res '()))
-    (dolist (source-file source-files)
-      (push (process-source-file source-file env system-name path-to-root) res))
-    (clean-system system-name nil)
-    (nreverse res)))
+  (setup-system system-name path-to-root)
+  (unwind-protect
+   (let ((source-files (get-source-files system-name))
+         (env (empty-environment))
+         (res '()))
+     (dolist (source-file source-files)
+       (push (process-source-file source-file env system-name path-to-root) res))
+     (nreverse res))
+   (clean-system system-name path-to-root)))

@@ -114,9 +114,12 @@
 
 (defun cst-to-list (cst)
   "Transforms a cst into a list of csts of its subexpressions."
-  (if (cst:null cst)
-      '()
-      (cons (cst:first cst) (cst-to-list (cst:rest cst)))))
+  (cond
+    ((cst:null cst)
+     '())
+    ((cst:consp cst)
+     (cons (cst:first cst) (cst-to-list (cst:rest cst))))
+    (T (list cst))))
 
 (defun process-function-call (cst env)
   "Process a function call cst. Some special operators are also processed using
@@ -164,10 +167,11 @@
             ((cst:null cst) (values '() env))
             ((cst:null (cst:rest cst)) (parse-cst (cst:first cst) env T))
             (T (let ((first (cst:first cst))
-                     (child (cst:second cst)))
+                     (rest (cst:rest cst)))
                  ;; checking if to turn off quasiquotation
                  (if (member (cst:raw first) +start-parse-symbols+)
-                     (parse-cst child env)
+                     ;;TODO check should be only one cst
+                     (parse-cst (cst:first rest) env)
                      (parse-csts (cst-to-list cst) env T T)))))
       (if (atom-cst-p cst)
           (parse-atom cst env)
@@ -242,7 +246,12 @@
 ;TODO add optional form eval
 (defun process-defun (cst env)
   "Process a function declaration."
-  (process-standard-def cst env))
+  (if (consp (cst:raw (cst:second cst)))
+      (progn
+       (format *standard-output*
+               "WARNING: defun is not yet implemented with setf!~%")
+       (values '() env))
+      (process-standard-def cst env)))
 
 ;; quote
 

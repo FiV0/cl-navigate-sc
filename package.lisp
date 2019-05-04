@@ -7,12 +7,17 @@
            ;; definitely needed
            #:file-position-error
            #:file-location
+           #:start
+           #:end
+           #:start-line
+           #:end-line
            #:file-location-start-line
            #:file-location-end-line
            #:file-location-start
            #:file-location-end
            #:source-location
            #:source-location-source-filepath
+           #:source-filepath
            #:source-references-wrapper
            #:wrapper-source-references
            #:process-system

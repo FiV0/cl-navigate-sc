@@ -32,6 +32,9 @@
 
 (in-package #:cl-navigate-sc-test)
 
+;; BIG TODO
+;; remove all the relative parts and assumptions on repositories being in
+;; certain places
 
 ;;Working with hunchentoot as an example. The request.lisp file below is from
 ;;hunchentoot.
@@ -488,6 +491,13 @@
         (find-package :hunchentoot)
         (cl-navigate-sc::cst-source-position-current-package res-client))))
 
+(defvar *program22* "(:NAME . \"JSONRPCError\")")
+
+(define-test quasiquoted-pair-string
+  :depends-on (parse-cst-simple eclector-read)
+  (let* ((cst (read-one-cst *program22*)))
+    (parse-cst cst (empty-environment) T)))
+
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
 
@@ -514,6 +524,8 @@
 (define-test test-process-system
   (let* ((res (process-system :hunchentoot "/home/fv/Code/CL/hunchentoot/"))
          (src-refs (alexandria:flatten
-                     (mapcar #'wrapper-source-references res))))
+                     (mapcar #'wrapper-source-references res)))
+         (res T))
     (dolist (src-ref src-refs)
-      (true (symbolp (symbol-information-symbol src-ref))))))
+      (setf res (and res (symbolp (symbol-information-symbol src-ref)))))
+    (true res)))
