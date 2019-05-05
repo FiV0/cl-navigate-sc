@@ -36,18 +36,20 @@
 ;; process
 ;; ql:uninstall
 
-(defun setup-system (system-name path)
+(defun setup-system (system-name)
   "Setup for processing a directory."
-  (when path
-    (push path asdf:*central-registry*))
   (asdf:load-system system-name))
 
-(defun clean-system (system-name path)
+(defun clean-system (system-name)
   "Clean up after a system has been loaded with SETUP-SYSTEM."
-  ;; TODO check if quicklisp remains intact
-  (when path
-    (pop asdf:*central-registry*))
   (asdf:clear-system system-name))
+
+(defmacro with-system-setup ((system-name) &body body)
+  `(progn
+     (setup-system ,system-name)
+     (unwind-protect
+       (progn ,@body)
+       (clean-system ,system-name))))
 
 (defun get-source-files (system-name)
   "Gets the source files in order of dependency for a "
@@ -80,15 +82,14 @@
          (src-refs (parse-program csts env)))
     (make-file-source-references src-refs system-name relative-filepath)))
 
+;;TODO root can most likely be found from asdf/system:system class
 (defun process-system (system-name path-to-root)
   "Process a whole system and returns the source references."
   ;;TODO add path-to-root
-  (setup-system system-name path-to-root)
-  (unwind-protect
-   (let ((source-files (get-source-files system-name))
-         (env (empty-environment))
-         (res '()))
-     (dolist (source-file source-files)
-       (push (process-source-file source-file env system-name path-to-root) res))
-     (nreverse res))
-   (clean-system system-name path-to-root)))
+  (with-system-setup (system-name)
+    (let ((source-files (get-source-files system-name))
+          (env (empty-environment))
+          (res '()))
+      (dolist (source-file source-files)
+        (push (process-source-file source-file env system-name path-to-root) res))
+      (nreverse res))))
