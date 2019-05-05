@@ -36,20 +36,24 @@
 ;; process
 ;; ql:uninstall
 
-(defun setup-system (system-name)
+(defun setup-system (system-name path)
   "Setup for processing a directory."
+  (when path
+    (push path asdf:*central-registry*))
   (asdf:load-system system-name))
 
-(defun clean-system (system-name)
+(defun clean-system (system-name path)
   "Clean up after a system has been loaded with SETUP-SYSTEM."
+  (when path
+    (pop asdf:*central-registry*))
   (asdf:clear-system system-name))
 
-(defmacro with-system-setup ((system-name) &body body)
+(defmacro with-system-setup ((system-name path) &body body)
   `(progn
-     (setup-system ,system-name)
+     (setup-system ,system-name ,path)
      (unwind-protect
        (progn ,@body)
-       (clean-system ,system-name))))
+       (clean-system ,system-name ,path))))
 
 (defun get-source-files (system-name)
   "Gets the source files in order of dependency for a "
@@ -86,7 +90,7 @@
 (defun process-system (system-name path-to-root)
   "Process a whole system and returns the source references."
   ;;TODO add path-to-root
-  (with-system-setup (system-name)
+  (with-system-setup (system-name path-to-root)
     (let ((source-files (get-source-files system-name))
           (env (empty-environment))
           (res '()))

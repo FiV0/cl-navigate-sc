@@ -522,7 +522,7 @@
 ;; tests for process project
 
 (define-test test-process-system
-  (let* ((res (process-system :hunchentoot))
+  (let* ((res (process-system :hunchentoot #P"/home/fv/Code/CL/hunchentoot/"))
          (src-refs (alexandria:flatten
                      (mapcar #'wrapper-source-references res)))
          (res T))
