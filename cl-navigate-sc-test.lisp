@@ -59,11 +59,21 @@
 
 (define-test file-position-to-location
   :depends-on (find-if-consecutive)
-  (let* ((res (file-position-to-location 69 '(1 45)))
-         (line (car res))
-         (column (cdr res)))
-    (is = 2 line)
-    (is = 24 column)))
+  (let* ((res1 (file-position-to-location  4 '(23 45)))
+         (line1 (car res1))
+         (column1 (cdr res1)))
+    (is = 0 line1)
+    (is = 4 column1))
+  (let* ((res2 (file-position-to-location 27 '(23 45)))
+         (line2 (car res2))
+         (column2 (cdr res2)))
+    (is = 1 line2)
+    (is = 3 column2))
+  (let* ((res3 (file-position-to-location 46 '(1 45)))
+         (line3 (car res3))
+         (column3 (cdr res3)))
+    (is = 2 line3)
+    (is = 0 column3)))
 
 (define-test create-file-position-to-file-location-function
   :depends-on (calculate-line-breaks file-position-to-location)
@@ -73,8 +83,7 @@
          (line (car res))
          (column (cdr res)))
     (is = 5 line)
-    (is = 25 column)))
-
+    (is = 24 column)))
 
 (defvar *program* "(1 #|comment|# ;;test
                        \"string\")")

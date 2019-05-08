@@ -69,10 +69,10 @@
           line-breaks)
        (if last-line-break
            ;;normal case
-           (cons linenumber (- position last-line-break))
+           (cons linenumber (- position last-line-break 1))
            ;;last line case
            (cons (length line-breaks)
-                 (- position (car (last line-breaks))))))))
+                 (- position (car (last line-breaks)) 1))))))
 
 (defun create-file-position-to-file-location-function (is)
   "Takes a input stream IS and returns a function that given a file-position

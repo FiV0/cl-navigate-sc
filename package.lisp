@@ -15,6 +15,7 @@
            #:file-location-end-line
            #:file-location-start
            #:file-location-end
+           #:file-position-to-location
            #:source-location
            #:source-location-source-filepath
            #:source-filepath
