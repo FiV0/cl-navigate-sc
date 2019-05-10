@@ -49,7 +49,6 @@
     (is #'eq'cons (type-of result))
     (is #'eq 10 (length result))))
 
-
 (define-test find-if-consecutive
  (is-values (find-if-consecutive #'(lambda (x y)
                                      (declare (ignore x)) (< 7 y))
@@ -528,8 +527,20 @@
         (find-package :alexandria))
     (true res)))
 
-;; tests for process project
+(defparameter *filepath3*
+  "./test/utf8-test.lisp")
 
+(define-test utf-8-parse-test
+  (let* ((cst (car (parse-from-file *filepath3*)))
+         (file-location (cst:source cst)))
+    (is = 1 (file-location-start-line file-location))
+    (is = 1 (file-location-end-line file-location))
+    (is = 0 (file-location-start file-location))
+    (is = 1 (file-location-end file-location))))
+
+(test 'utf-8-parse-test)
+
+;; tests for process project
 (define-test test-process-system
   (let* ((res (process-system :hunchentoot #P"/home/fv/Code/CL/hunchentoot/"))
          (src-refs (alexandria:flatten

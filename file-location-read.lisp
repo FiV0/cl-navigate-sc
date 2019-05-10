@@ -35,11 +35,10 @@
         (res '()))
     (unless (file-position is :start)
       (error 'file-position-error))
-    (do ((c (read-char is) (read-char is nil 'eof))
-         (cnt 0 (incf cnt)))
+    (do ((c (read-char is) (read-char is nil 'eof)))
         ((not (characterp c)))
        (when (or (eq c #\return) (eq c #\newline))
-         (push cnt res)))
+         (push (1- (file-position is)) res)))
     (unless (file-position is cur-position)
       (error 'file-position-error))
     (nreverse res)))
@@ -90,7 +89,7 @@
                                     file-postion to a line,column pair.")
    (current-package :initarg :current-package
                     :accessor cst-source-position-current-package
-                    :initform *package*
+                    :initform (find-package :cl)
                     :documentation "The current package when reading a file.")
    (current-file :initarg :current-file
                  :accessor cst-source-position-current-file
@@ -99,6 +98,7 @@
 
 (defmethod eclector.parse-result:make-source-range
   ((client cst-source-position) start end)
+  (format *standard-output* "start ~a end ~a" start end)
   (let* ((location-function (cst-source-position-fp-to-fl client))
          (start-line-column (funcall location-function start))
          (end-line-column (funcall location-function end)))
@@ -137,6 +137,8 @@
     (format package-indicator-capitalized "~@:(~a~)" package-indicator)
     (setf (cst-source-position-current-package client)
           (find-package package-indicator-capitalized))
+    ;;TODO do something fatal here
+    (assert (not (null (cst-source-position-current-package client))))
     client))
 
 ;;TODO add this temporary option into client
@@ -194,6 +196,7 @@
             (make-instance 'cst-source-position
                            :file-position-to-file-location
                            (create-file-position-to-file-location-function is)
+                           :current-package (find-package :cl)
                            :current-file filepath)))
      (loop for exp = (eclector.parse-result:read client is nil eof)
            until (equal exp eof)
