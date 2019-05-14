@@ -95,14 +95,6 @@
                            (create-file-position-to-file-location-function is))
             is))))
 
-;(defparameter *programb* "(flatten '(1 (2 3) 4))")
-
-;(with-input-from-string (is *programb*)
-  ;(eclector.parse-result:read
-    ;(make-instance 'symbol-location-client
-                   ;:file-position-to-file-location
-                   ;(create-file-position-to-file-location-function is)) is))
-
 (define-test parse-from-file
   :depends-on (eclector-read)
  (true (parse-from-file *filepath1*)))
@@ -386,8 +378,8 @@
          (cst-a (nth 0 res))
          (cst-rest (nth 1 res)))
     (is = 2 (length res))
-    (is #'eq 'a (cst:raw cst-a))
-    (is #'eq 'rest (cst:raw cst-rest))))
+    (is #'string= "A" (symbol-name (cst:raw cst-a)))
+    (is #'string= "REST" (symbol-name (cst:raw cst-rest)))))
 
 (define-test parse-defun2
   :depends-on (parse-cst-simple eclector-read)
@@ -430,9 +422,9 @@
          (cst-b (nth 1 res))
          (cst-body (nth 2 res)))
     (is = 3 (length res))
-    (is #'eq 'a (cst:raw cst-a))
-    (is #'eq 'b (cst:raw cst-b))
-    (is #'eq 'body (cst:raw cst-body))))
+    (is #'string= "A" (cst:raw cst-a))
+    (is #'string= "B" (cst:raw cst-b))
+    (is #'string= "BODY" (cst:raw cst-body))))
 
 (define-test parse-macro
   (let* ((cst (read-one-cst *program19*))
@@ -537,8 +529,6 @@
     (is = 1 (file-location-end-line file-location))
     (is = 0 (file-location-start file-location))
     (is = 1 (file-location-end file-location))))
-
-(test 'utf-8-parse-test)
 
 ;; tests for process project
 (define-test test-process-system

@@ -7,17 +7,25 @@
                      :accessor source-reference-parent
                      :documentation "EQ to itself if the symbol is also the
                                      definition. Otherwise points to the
-                                     SOURCE-REFERENCE of the definition.")))
+                                     SOURCE-REFERENCE of the definition.")
+   (globalp :initarg :globalp
+            :accessor source-reference-globalp
+            :documentation "A generilzed boolean, indicating whether the source
+                            reference is global or local.")))
 
 (defun set-source-reference (source-reference parent)
   (setf (source-reference-parent source-reference) parent)
   source-reference)
 
-(defun make-source-reference (symbol-information source-location
-                                                 &optional (parent nil))
+(defun make-source-reference (symbol-information
+                               source-location
+                               &optional
+                               (parent nil)
+                               (globalp nil))
   (let ((instance
           (make-instance 'source-reference
                          :parent parent
+                         :globalp globalp
                          :start-line (file-location-start-line source-location)
                          :end-line (file-location-end-line source-location)
                          :start (file-location-start source-location)

@@ -12,6 +12,7 @@
   :serial t
   :depends-on (#:asdf
                #:cl-fad
+               #:cl-mv
                #:quicklisp
                #:concrete-syntax-tree
                #:eclector

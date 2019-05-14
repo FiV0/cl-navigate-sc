@@ -1,7 +1,7 @@
 ;;;; package.lisp
 
 (defpackage #:cl-navigate-sc
-  (:use #:cl)
+  (:use #:cl #:cl-mv)
   (:nicknames #:nav)
   (:export #:cl-navigate-sc
            ;; definitely needed

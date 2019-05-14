@@ -46,16 +46,17 @@
     (if (eq (type-of item) 'symbol)
         (let
           ((symbol-information (make-symbol-information item))
+           (file-location (cst:source cst)))
            ;; TODO figure out how to best handle the case other package
            ;; for now just check if its a standard symbol
-           (parent (find-source-reference item env))
-           (file-location (cst:source cst)))
-          (if file-location
-           (values
-             (list (make-source-reference symbol-information
-                                          file-location parent))
-             env)
-           (values '() env)))
+          (multiple-value-bind (parent globalp)
+            (find-source-reference item env)
+            (if file-location
+                (values
+                  (list (make-source-reference symbol-information
+                                               file-location parent globalp))
+                  env)
+                (values '() env))))
         (values '() env))))
 
 

@@ -94,11 +94,15 @@
    (current-file :initarg :current-file
                  :accessor cst-source-position-current-file
                  :initform nil
-                 :documentation "The current file being processed.")))
+                 :documentation "The current file being processed.")
+   (fallback-package :initarg :current-package
+                     :accessor cst-source-position-fallback-package
+                     :initform (make-package (gensym "TEMPORARY"))
+                     :documentation "A package for interning unknown symbols ")
+   ))
 
 (defmethod eclector.parse-result:make-source-range
   ((client cst-source-position) start end)
-  (format *standard-output* "start ~a end ~a" start end)
   (let* ((location-function (cst-source-position-fp-to-fl client))
          (start-line-column (funcall location-function start))
          (end-line-column (funcall location-function end)))
@@ -140,14 +144,12 @@
     ;;TODO do something fatal here
     (assert (not (null (cst-source-position-current-package client))))
     client))
-
-;;TODO add this temporary option into client
-(defparameter *temporary-package* (make-package 'temporary))
+(find-package "HUNCHENTOOT")
 
 (defmethod eclector.reader:interpret-symbol
   ((client cst-source-position) input-stream (package-indicator null)
                                 symbol-name internp)
-  (intern symbol-name *temporary-package*))
+  (intern symbol-name (cst-source-position-fallback-package client)))
 
 (defmethod eclector.reader:interpret-symbol
   ((client cst-source-position) input-stream package-indicator symbol-name
@@ -170,7 +172,7 @@
               ;symbol-name package status)
       (cond ((null status)
              ;; TODO see above
-             (intern symbol-name *temporary-package*))
+             (intern symbol-name (cst-source-position-fallback-package client)))
             ((eq status :internal)
              symbol)
             (t
@@ -196,7 +198,7 @@
             (make-instance 'cst-source-position
                            :file-position-to-file-location
                            (create-file-position-to-file-location-function is)
-                           :current-package (find-package :cl)
+                           :current-package *package*
                            :current-file filepath)))
      (loop for exp = (eclector.parse-result:read client is nil eof)
            until (equal exp eof)
@@ -229,7 +231,7 @@
 
 ;;;;;;;;;;
 ;;;
-;;; This most likely all that we need.
+;;; This is most likely all that we need.
 ;;;
 
 ;; slot with source information
