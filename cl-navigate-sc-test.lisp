@@ -463,6 +463,26 @@
     (is #'eq sr-b (source-reference-parent sr-b-eval))
     (is #'eq sr-body (source-reference-parent sr-body-eval))))
 
+(defvar *program19c*
+  "(let ((i 1)
+         (j 2))
+     (case 1
+           ((2) (print i))
+           (1 (print j))))")
+
+(define-test parse-case
+  (let* ((cst (read-one-cst *program19c*))
+         (res (parse-cst cst (empty-environment)))
+         (sr-i (nth 1 res))
+         (sr-i-eval (nth 5 res))
+         (sr-j (nth 2 res))
+         (sr-j-eval (nth 7 res)))
+    (is = 8 (length res))
+    (is #'eq sr-i (source-reference-parent sr-i-eval))
+    (is #'eq sr-j (source-reference-parent sr-j-eval))))
+
+(test 'parse-case)
+
 (defvar *program20*
   "(in-package :hunchentoot)
    (defclass test () ())")

@@ -137,18 +137,56 @@
       (declare (ignore new-env))
       (values (append sr srefs) env))))
 
+#| Macro symbols in :cl
+
+AND ASSERT CALL-METHOD CASE CCASE CHECK-TYPE COND CTYPECASE DECF DECLAIM
+DEFCLASS DEFCONSTANT DEFGENERIC DEFINE-COMPILER-MACRO DEFINE-CONDITION
+DEFINE-METHOD-COMBINATION DEFINE-MODIFY-MACRO DEFINE-SETF-EXPANDER
+DEFINE-SYMBOL-MACRO DEFMACRO DEFMETHOD DEFPACKAGE DEFPARAMETER DEFSETF
+DEFSTRUCT DEFTYPE DEFUN DEFVAR DESTRUCTURING-BIND DO DO* DO-ALL-SYMBOLS
+DO-EXTERNAL-SYMBOLS DO-SYMBOLS DOLIST DOTIMES ECASE ETYPECASE FORMATTER
+HANDLER-BIND HANDLER-CASE IGNORE-ERRORS IN-PACKAGE INCF LAMBDA LOOP
+LOOP-FINISH MULTIPLE-VALUE-BIND MULTIPLE-VALUE-LIST MULTIPLE-VALUE-SETQ
+NTH-VALUE OR POP PPRINT-EXIT-IF-LIST-EXHAUSTED PPRINT-LOGICAL-BLOCK
+PPRINT-POP PRINT-UNREADABLE-OBJECT PROG PROG* PROG1 PROG2 PSETF PSETQ PUSH
+PUSHNEW REMF RESTART-BIND RESTART-CASE RETURN ROTATEF SETF SHIFTF STEP
+TIME TRACE TYPECASE UNLESS UNTRACE WHEN WITH-ACCESSORS
+WITH-COMPILATION-UNIT WITH-CONDITION-RESTARTS WITH-HASH-TABLE-ITERATOR
+WITH-INPUT-FROM-STRING WITH-OPEN-FILE WITH-OPEN-STREAM
+WITH-OUTPUT-TO-STRING WITH-PACKAGE-ITERATOR WITH-SIMPLE-RESTART WITH-SLOTS
+WITH-STANDARD-IO-SYNTAX
+
+|#
+
+;;TODO
+(defparameter *macros-process-like-function*
+  (list 'and 'assert 'or))
+
+(defparameter *clos-symbols*
+  (list 'call-method 'defclass 'defgeneric 'define-method-combination
+        'defmethod ))
+
 (defun process-other-cst (cst env)
   "Process a CST that is not special"
-  (let ((first (cst:first cst)))
-    (cond ((not (macro-function (cst:raw first)))
+  (let ((raw (cst:raw (cst:first cst) )))
+    (cond ((not (macro-function raw))
            (process-function-call cst env))
-          ((eq (cst:raw first) 'defun)
+          ;;TODO
+          ((member raw *clos-symbols*)
+           (progn
+             (format *standard-output* "WARNING: CLOS symbols not yet
+                                        implemented")
+             (values '() env)))
+          ((eq raw 'defun)
            (process-defun cst env))
-          ((eq (cst:raw first) 'defmacro)
+          ((eq raw 'defmacro)
            (process-defmacro cst env))
+          ((member raw (list 'case 'ccase 'ecase))
+           (process-case cst env))
+          ;;TODO
           (T (progn
                (format *standard-output* "WARNING: ~a is not yet implemented!~%"
-                       (cst:raw first))
+                       raw)
                (values '() env))))))
 
 (defun parse-cons (cst env)
@@ -157,7 +195,6 @@
     (cond ((stop-parse first) (parse-cst (cst:second cst) env T))
           ((special-cst-p first) (process-special-cst cst env))
           (T (process-other-cst cst env)))))
-
 (defun parse-cst (cst env &optional (quasiquoted nil))
   "Parse a cst of any form."
   (if quasiquoted
@@ -204,7 +241,13 @@
   (let* ((symbol (cst:raw cst))
          (symbol-information (make-symbol-information symbol))
          (file-location (cst:source cst))
-         (sr (make-source-reference symbol-information file-location)))
+         (sr (make-source-reference
+               symbol-information
+               file-location
+               nil
+               (not (member add-env-function
+                            (list #'add-variable-to-env
+                                  #'add-function-to-env))))))
     (values (list sr) (funcall add-env-function env sr))))
 
 (defun add-symbols-to-env (csts env &optional
@@ -218,7 +261,6 @@
       (values (car res) (cdr res)))))
 
 ;; defmacro
-
 (defun process-standard-def (cst env &optional (parse-lambda-list-fn
                                                  #'parse-ordinary-lambda-list))
   "Process a defmacro or defun definition."
@@ -251,6 +293,30 @@
                "WARNING: defun is not yet implemented with setf!~%")
        (values '() env))
       (process-standard-def cst env)))
+
+(defun split-clauses-case (clauses)
+  "A list of the form ((keys forms*)*) gets split into a list of keys and a list
+   of forms*."
+  (let ((res (reduce #'(lambda (res clause)
+                          (list (cons (cst:first clause) (car res))
+                                (cons (cst:rest clause) (cadr res))))
+                     (cst-to-list clauses) :initial-value (list '() '()))))
+    (values (nreverse (car res)) (nreverse (cadr res)))))
+
+;; case
+(defun process-case (cst env)
+  "Process a case declaration"
+  (let ((case (cst:first cst))
+        (keyform (cst:second cst))
+        (clauses (resti cst 2)))
+    (mvlet* ((srefs1 (parse-atom case env))
+             (srefs2 (parse-cst keyform env))
+             ((keys forms*) (split-clauses-case clauses))
+             (srefs3 (alexandria:flatten
+                       (mapcar #'(lambda (forms)
+                                   (parse-csts (cst-to-list forms) env T))
+                               forms*))))
+      (values (append srefs1 srefs2 srefs3) env))))
 
 ;; quote
 
