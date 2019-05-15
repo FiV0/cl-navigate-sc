@@ -44,21 +44,19 @@
   "Creates sources-references + env for an atom CST."
   (let* ((item (cst:raw cst)))
     (if (eq (type-of item) 'symbol)
-        (let
+        (mvlet
           ((symbol-information (make-symbol-information item))
-           (file-location (cst:source cst)))
            ;; TODO figure out how to best handle the case other package
            ;; for now just check if its a standard symbol
-          (multiple-value-bind (parent globalp)
-            (find-source-reference item env)
-            (if file-location
-                (values
-                  (list (make-source-reference symbol-information
-                                               file-location parent globalp))
-                  env)
-                (values '() env))))
+           ((parent globalp) (find-source-reference item env))
+           (file-location (cst:source cst)))
+          (if file-location
+              (values
+                (list (make-source-reference symbol-information
+                                             file-location parent globalp))
+                env)
+              (values '() env)))
         (values '() env))))
-
 
 (defun special-cst-p (cst)
   "Returns True if the cst is special symbol."
@@ -125,15 +123,15 @@
 (defun process-function-call (cst env)
   "Process a function call cst. Some special operators are also processed using
    this function as they are no different in terms of source referencing."
-  (let* ((first (cst:first cst))
-        (function (cst:raw first))
-        (symbol-information (make-symbol-information function))
-        ;; TODO check how to test for function from external package
-        (parent (find-source-reference function env #'find-function))
-        (file-location (cst:source first))
-        (sr (when file-location
-              (list (make-source-reference symbol-information file-location
-                                           parent)))))
+  (mvlet* ((first (cst:first cst))
+           (function (cst:raw first))
+           (symbol-information (make-symbol-information function))
+           ;; TODO check how to test for function from external package
+           ((parent globalp) (find-source-reference function env #'find-function))
+           (file-location (cst:source first))
+           (sr (when file-location
+                 (list (make-source-reference symbol-information file-location
+                                              parent globalp)))))
     (multiple-value-bind (srefs new-env)
       (parse-csts (cst-to-list (cst:rest cst)) env)
       (declare (ignore new-env))

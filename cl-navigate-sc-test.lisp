@@ -167,7 +167,8 @@
          (sr-b (nth 2 res))
          (sr-eval-b (nth 5 res)))
     (is #'eq sr-i (source-reference-parent sr-eval-i))
-    (is #'eq sr-b (source-reference-parent sr-eval-b))))
+    (is #'eq sr-b (source-reference-parent sr-eval-b))
+    (is #'eq t (source-reference-globalp sr-eval-b))))
 
 (defvar *program4* "(let* ((x 1)
                          (y x))
@@ -385,10 +386,13 @@
   :depends-on (parse-cst-simple eclector-read)
   (let* ((cst (read-one-cst *program17*))
          (res (parse-cst cst (empty-environment)))
+         (sr-test (nth 1 res))
          (sr-a (nth 2 res))
          (sr-a-eval (nth 5 res))
          (sr-rest (nth 3 res))
          (sr-rest-eval (nth 6 res)))
+    (true (source-reference-globalp sr-test))
+    (false (source-reference-globalp sr-a))
     (is #'eq sr-a (source-reference-parent sr-a-eval))
     (is #'eq sr-rest (source-reference-parent sr-rest-eval))))
 

@@ -27,6 +27,7 @@
            #:symbol-information-error
            #:source-reference
            #:source-reference-parent
+           #:source-reference-globalp
            ;; TO CHECK
            #:source-location
            #:calculate-line-breaks

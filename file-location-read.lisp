@@ -144,7 +144,6 @@
     ;;TODO do something fatal here
     (assert (not (null (cst-source-position-current-package client))))
     client))
-(find-package "HUNCHENTOOT")
 
 (defmethod eclector.reader:interpret-symbol
   ((client cst-source-position) input-stream (package-indicator null)
