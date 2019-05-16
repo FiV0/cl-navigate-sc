@@ -560,6 +560,18 @@
     (is #'eq sr-i (source-reference-parent sr-i-eval))
     (is #'eq sr-j (source-reference-parent sr-j-eval))))
 
+(defvar *program24* "
+(defparameter *toto* (list 2 3))
+(mapcar #'print *toto*)")
+
+(define-test parse-cond
+  (let* ((csts (read-program-from-string *program24*))
+         (res (parse-csts csts (empty-environment)))
+         (toto (nth 1 res))
+         (toto-eval (nth 5 res)))
+    (is = 6 (length res))
+    (is #'eq toto (source-reference-parent toto-eval))))
+
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
 

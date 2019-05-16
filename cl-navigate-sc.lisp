@@ -160,11 +160,13 @@ WITH-STANDARD-IO-SYNTAX
 
 ;;TODO
 (defparameter *macros-process-like-function*
-  (list 'and 'assert 'or 'check-type))
+  '(and assert or check-type decf incf declaim))
 
 (defparameter *clos-symbols*
-  (list 'call-method 'defclass 'defgeneric 'define-method-combination
-        'defmethod ))
+  '(call-method defclass defgeneric define-method-combination defmethod ))
+
+(defparameter *global-var-specifiers*
+  '(defconstant defparameter defvar))
 
 (defun process-other-cst (cst env)
   "Process a CST that is not special"
@@ -174,8 +176,7 @@ WITH-STANDARD-IO-SYNTAX
           ;;TODO
           ((member raw *clos-symbols*)
            (progn
-             (format *standard-output* "WARNING: CLOS symbols not yet
-                                        implemented")
+             (format *standard-output* "WARNING: CLOS symbols not yet implemented")
              (values '() env)))
           ((eq raw 'defun)
            (process-defun cst env))
@@ -184,6 +185,8 @@ WITH-STANDARD-IO-SYNTAX
           ((member raw (list 'case 'ccase 'ecase 'typecase 'ctypecase
                              'etypecase))
            (process-case cst env))
+          ((member raw *global-var-specifiers*)
+           (process-global-vars cst env))
           ((eq raw 'cond)
            (process-cond cst env))
           ;;TODO
@@ -198,6 +201,7 @@ WITH-STANDARD-IO-SYNTAX
     (cond ((stop-parse first) (parse-cst (cst:second cst) env T))
           ((special-cst-p first) (process-special-cst cst env))
           (T (process-other-cst cst env)))))
+
 
 (defun parse-cst (cst env &optional (quasiquoted nil))
   "Parse a cst of any form."
@@ -286,6 +290,17 @@ WITH-STANDARD-IO-SYNTAX
 (defun process-defmacro (cst env)
   "Process a defmacro declaration."
   (process-standard-def cst env #'parse-macro-lambda-list))
+
+(defun process-global-vars (cst env)
+  "Process a defconstant, defparameter or defvar."
+  (mvlet* ((def (cst:first cst))
+           (name (cst:second cst))
+           (value (cst:third cst))
+           (srefs1 (parse-atom def env))
+           ((srefs2 env2) (add-symbol-to-env name env
+                                            #'add-variable-to-env-global))
+           (srefs3 (parse-cst value (copy-environment env))))
+    (values (append srefs1 srefs2 srefs3) env2)))
 
 ;; defun
 ;TODO add optional form eval
