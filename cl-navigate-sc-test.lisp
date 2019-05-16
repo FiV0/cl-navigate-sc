@@ -481,8 +481,6 @@
     (is #'eq sr-i (source-reference-parent sr-i-eval))
     (is #'eq sr-j (source-reference-parent sr-j-eval))))
 
-(test 'parse-case)
-
 (defvar *program20*
   "(in-package :hunchentoot)
    (defclass test () ())")
@@ -521,6 +519,38 @@
   :depends-on (parse-cst-simple eclector-read)
   (let* ((cst (read-one-cst *program22*)))
     (parse-cst cst (empty-environment) T)))
+
+(let ((i 2)
+      (j 2))
+  (cond ((eq i j) (+ i i))
+        (T (- j j))))
+
+(defvar *program23* "
+(let ((i 2)
+      (j 2))
+  (cond ((eq i j) (+ i i))
+        (t (- j j))))")
+
+(read-one-cst *program23*)
+(parse-cst * (empty-environment))
+(defparameter res *)
+(nth 7 res)
+*
+(cl-navigate-sc::resti * 2)
+(cst:first *)
+(cst:rest *)
+(cl-navigate-sc::cst-to-list *)
+
+(define-test parse-cond
+  (let* ((cst (read-one-cst *program23*))
+         (res (parse-cst cst (empty-environment)))
+         (sr-i (nth 1 res))
+         (sr-i-eval (nth 8 res))
+         (sr-j (nth 2 res))
+         (sr-j-eval (nth 11 res)))
+    (is = 13 (length res))
+    (is #'eq sr-i (source-reference-parent sr-i-eval))
+    (is #'eq sr-j (source-reference-parent sr-j-eval))))
 
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
