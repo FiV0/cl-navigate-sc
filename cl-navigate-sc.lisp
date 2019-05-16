@@ -160,7 +160,7 @@ WITH-STANDARD-IO-SYNTAX
 
 ;;TODO
 (defparameter *macros-process-like-function*
-  (list 'and 'assert 'or))
+  (list 'and 'assert 'or 'check-type))
 
 (defparameter *clos-symbols*
   (list 'call-method 'defclass 'defgeneric 'define-method-combination
@@ -181,8 +181,11 @@ WITH-STANDARD-IO-SYNTAX
            (process-defun cst env))
           ((eq raw 'defmacro)
            (process-defmacro cst env))
-          ((member raw (list 'case 'ccase 'ecase))
+          ((member raw (list 'case 'ccase 'ecase 'typecase 'ctypecase
+                             'etypecase))
            (process-case cst env))
+          ((eq raw 'cond)
+           (process-cond cst env))
           ;;TODO
           (T (progn
                (format *standard-output* "WARNING: ~a is not yet implemented!~%"
@@ -195,6 +198,7 @@ WITH-STANDARD-IO-SYNTAX
     (cond ((stop-parse first) (parse-cst (cst:second cst) env T))
           ((special-cst-p first) (process-special-cst cst env))
           (T (process-other-cst cst env)))))
+
 (defun parse-cst (cst env &optional (quasiquoted nil))
   "Parse a cst of any form."
   (if quasiquoted
@@ -294,7 +298,7 @@ WITH-STANDARD-IO-SYNTAX
        (values '() env))
       (process-standard-def cst env)))
 
-(defun split-clauses-case (clauses)
+(defun split-clauses (clauses)
   "A list of the form ((keys forms*)*) gets split into a list of keys and a list
    of forms*."
   (let ((res (reduce #'(lambda (res clause)
@@ -311,15 +315,36 @@ WITH-STANDARD-IO-SYNTAX
         (clauses (resti cst 2)))
     (mvlet* ((srefs1 (parse-atom case env))
              (srefs2 (parse-cst keyform env))
-             ((keys forms*) (split-clauses-case clauses))
+             ((keys forms*) (split-clauses clauses))
              (srefs3 (alexandria:flatten
                        (mapcar #'(lambda (forms)
-                                   (parse-csts (cst-to-list forms) env T))
+                                   (parse-csts (cst-to-list forms)
+                                               (copy-environment env) T))
                                forms*))))
       (values (append srefs1 srefs2 srefs3) env))))
 
-;; quote
+;; cond
+(defun process-cond (cst env)
+  "Process a cond declaration."
+  (mvlet* ((cond (cst:first cst))
+           (clauses (cst:rest cst))
+           (srefs1 (parse-atom cond env))
+           ((conds forms*) (split-clauses clauses))
+           (srefs2-lists (mapcar #'(lambda (cond)
+                                     (parse-cst cond (copy-environment env)))
+                                 conds))
+           (srefs3-lists (mapcar #'(lambda (forms)
+                                     (parse-csts (cst-to-list forms)
+                                                 (copy-environment env) T))
+                                 forms*))
+           (srefs2-3 (alexandria:flatten
+                       (mapcar #'(lambda (sref2 sref3)
+                                   (append sref2 sref3))
+                               srefs2-lists
+                               srefs3-lists))))
+    (values (append srefs1 srefs2-3) env)))
 
+;; quote
 (defun process-quote (cst env)
   "Process a quote cst."
   (let ((quote (cst:first cst))
