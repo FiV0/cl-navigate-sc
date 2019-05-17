@@ -538,11 +538,6 @@
   (let* ((cst (read-one-cst *program22*)))
     (parse-cst cst (empty-environment) T)))
 
-(let ((i 2)
-      (j 2))
-  (cond ((eq i j) (+ i i))
-        (T (- j j))))
-
 (defvar *program23* "
 (let ((i 2)
       (j 2))
@@ -571,6 +566,16 @@
          (toto-eval (nth 5 res)))
     (is = 6 (length res))
     (is #'eq toto (source-reference-parent toto-eval))))
+
+(defvar *program25* "
+ (defpackage my-package
+   (:nicknames mypkg :MY-PKG)
+   (:use common-lisp)
+   (:shadow CAR :cdr #:cons)
+   (:export \"CONS\"))")
+
+;(define-test parse-defpackage
+             ;)
 
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")

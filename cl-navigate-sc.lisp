@@ -163,7 +163,8 @@ WITH-STANDARD-IO-SYNTAX
   '(and assert or check-type decf incf declaim))
 
 (defparameter *clos-symbols*
-  '(call-method defclass defgeneric define-method-combination defmethod ))
+  '(call-method defclass defgeneric define-condition define-method-combination
+                defmethod))
 
 (defparameter *global-var-specifiers*
   '(defconstant defparameter defvar))
@@ -180,10 +181,9 @@ WITH-STANDARD-IO-SYNTAX
              (values '() env)))
           ((eq raw 'defun)
            (process-defun cst env))
-          ((eq raw 'defmacro)
+          ((member raw '(defmacro define-compiler-macro))
            (process-defmacro cst env))
-          ((member raw (list 'case 'ccase 'ecase 'typecase 'ctypecase
-                             'etypecase))
+          ((member raw '(case ccase ecase typecase ctypecase etypecase))
            (process-case cst env))
           ((member raw *global-var-specifiers*)
            (process-global-vars cst env))
