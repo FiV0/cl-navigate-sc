@@ -160,7 +160,7 @@ WITH-STANDARD-IO-SYNTAX
 
 ;;TODO
 (defparameter *macros-process-like-function*
-  '(and assert or check-type decf incf declaim))
+  '(and assert or check-type decf incf declaim in-package))
 
 (defparameter *clos-symbols*
   '(call-method defclass defgeneric define-condition define-method-combination
@@ -172,7 +172,8 @@ WITH-STANDARD-IO-SYNTAX
 (defun process-other-cst (cst env)
   "Process a CST that is not special"
   (let ((raw (cst:raw (cst:first cst) )))
-    (cond ((not (macro-function raw))
+    (cond ((or (not (macro-function raw))
+               (member raw *macros-process-like-function*))
            (process-function-call cst env))
           ;;TODO
           ((member raw *clos-symbols*)
@@ -189,6 +190,8 @@ WITH-STANDARD-IO-SYNTAX
            (process-global-vars cst env))
           ((eq raw 'cond)
            (process-cond cst env))
+          ((eq raw 'defpackage)
+           (process-defpackage cst env))
           ;;TODO
           (T (progn
                (format *standard-output* "WARNING: ~a is not yet implemented!~%"
@@ -358,6 +361,16 @@ WITH-STANDARD-IO-SYNTAX
                                srefs2-lists
                                srefs3-lists))))
     (values (append srefs1 srefs2-3) env)))
+
+;; defpackage
+(defun process-defpackage (cst env)
+  "Process a defpackage declaration."
+  (mvlet* ((def (cst:first cst))
+           (name (cst:second cst))
+           (srefs1 (parse-atom def env))
+           ((srefs2 env2) (add-symbol-to-env name env
+                                             #'add-variable-to-env-global)))
+    (values (append srefs1 srefs2) env2)))
 
 ;; quote
 (defun process-quote (cst env)

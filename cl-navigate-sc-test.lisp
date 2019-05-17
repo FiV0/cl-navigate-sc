@@ -567,15 +567,24 @@
     (is = 6 (length res))
     (is #'eq toto (source-reference-parent toto-eval))))
 
+(defpackage my-package)
 (defvar *program25* "
  (defpackage my-package
    (:nicknames mypkg :MY-PKG)
    (:use common-lisp)
    (:shadow CAR :cdr #:cons)
-   (:export \"CONS\"))")
+   (:export \"CONS\"))
+ (in-package my-package)")
 
-;(define-test parse-defpackage
-             ;)
+(define-test parse-defpackage
+  (let* ((csts (read-program-from-string *program25*))
+         (res (parse-csts csts (empty-environment) T))
+         (my-package (nth 1 res))
+         (my-package-ref (nth 3 res)))
+    (is = 4 (length res))
+    (is #'eq my-package (source-reference-parent my-package-ref))))
+
+(test 'parse-defpackage)
 
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
