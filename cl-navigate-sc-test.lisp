@@ -584,8 +584,6 @@
     (is = 4 (length res))
     (is #'eq my-package (source-reference-parent my-package-ref))))
 
-(test 'parse-defpackage)
-
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
 
