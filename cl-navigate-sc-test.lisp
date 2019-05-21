@@ -18,6 +18,7 @@
                 #:file-location-end-line
                 #:file-location-start
                 #:file-location-end
+                #:filter-source-references
                 #:missing-source-reference
                 #:parse-program
                 #:parse-macro-lambda-list
@@ -598,6 +599,62 @@
     (is = 7 (length res))
     (is #'eq x (source-reference-parent x-eval))
     (is #'eq y (source-reference-parent y-eval))))
+
+(ql:quickload :cl-mv)
+(use-package :cl-mv)
+(defvar *program27*
+  "(mvlet* (((x y) (values 1 2))
+            ((i j) (values 3 4)))
+     (list x y i j))")
+
+(define-test parse-simple-macro
+  (let* ((cst (read-one-cst *program27*))
+         (res (filter-source-references (parse-cst cst (empty-environment))))
+         (x (nth 1 res))
+         (x-eval (nth 8 res))
+         (y (nth 2 res))
+         (y-eval (nth 9 res)))
+    (is = 12 (length res))
+    (is #'eq x (source-reference-parent x-eval))
+    (is #'eq y (source-reference-parent y-eval))))
+
+(read-one-cst *program27*)
+(filter-source-references (parse-cst * (empty-environment)))
+*
+
+(defvar *program28*
+  "(let ((i 1)
+         (j 2))
+     (mvlet (((x y) (values i j))
+             ((i j) (values 3 4)))
+       (list x y i j)))")
+
+(define-test parse-macro-more-involved
+  (let* ((cst (read-one-cst *program28*))
+         (res (filter-source-references (parse-cst cst (empty-environment))))
+         (i1 (nth 1 res))
+         (i1-eval (nth 7 res))
+         (j1 (nth 2 res))
+         (j1-eval (nth 8 res))
+         (i2 (nth 9 res))
+         (i2-eval (nth 15 res))
+         (j2 (nth 10 res))
+         (j2-eval (nth 16 res)))
+    (is = 17 (length res))
+    (is #'eq i1 (source-reference-parent i1-eval))
+    (is #'eq j1 (source-reference-parent j1-eval))
+    (is #'eq i1 (source-reference-parent i2-eval))
+    (is #'eq j1 (source-reference-parent j2-eval))))
+
+;(cl-navigate-sc::macroexpand*
+  ;'(mvlet (((x y) (values i j))
+           ;((i j) (values 3 4)))
+     ;(list x y i j)))
+
+;(defvar pro
+  ;"(mvlet (((x y) (values i j))
+           ;((i j) (values 3 4)))
+     ;(list x y i j))")
 
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")

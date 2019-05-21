@@ -40,8 +40,18 @@
     instance))
 
 (defun filter-source-references (srfs)
-  (remove-if #'(lambda (srf) (null (source-location-source-filepath srf)))
+  (remove-if #'(lambda (srf) (null (file-location-start-line srf)))
              srfs))
+
+(defun sort-source-references (srfs)
+  (sort srfs #'(lambda (srf1 srf2)
+                 (let ((l1 (file-location-start-line srf1))
+                       (l2 (file-location-start-line srf2))
+                       (s1 (file-location-start srf1))
+                       (s2 (file-location-start srf2)))
+                   (cond ((< l1 l2) T)
+                         ((and (= l1 l2) (< s1 s2)) T)
+                         (T nil))))))
 
 (defun dummy-source-reference (symbol)
   (make-instance 'source-reference

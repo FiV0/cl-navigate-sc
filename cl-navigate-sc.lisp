@@ -201,9 +201,9 @@ DEFSTRUCT
           ((eq raw 'defpackage)
            (process-defpackage cst env))
           ((eq raw 'multiple-value-bind)
-           (step (process-multiple-value-bind cst env) ))
-          ;((and (macro-function raw) (not (standard-symbol-p raw)))
-           ;(process-macro-call cst env))
+           (process-multiple-value-bind cst env))
+          ;((and (macro-function raw) (not (standard-symbol-p (cst:first cst))))
+           ;(process-macro-call cst env) )
           ;;TODO
           (T (progn
                (format *standard-output* "WARNING: ~a is not yet implemented!~%"
@@ -291,7 +291,9 @@ DEFSTRUCT
            (exp-expanded (macroexpand* (cst:raw cst)))
            (new-cst (cst:reconstruct exp-expanded cst *current-client*
                                      :default-source (default-source-location)))
-           (srefs2 (parse-cst new-cst env)))
+           (srefs2 (sort-source-references
+                     (filter-source-references
+                       (parse-cst new-cst env)))))
     (values (append srefs1 srefs2) env)))
 
 ;; defmacro
