@@ -585,7 +585,7 @@
     (is #'eq my-package (source-reference-parent my-package-ref))))
 
 (defvar *program26*
-  "(mutliple-value-bind (x y) (values 1 2)
+  "(multiple-value-bind (x y) (values 1 2)
      (+ x y))")
 
 (define-test parse-multiple-value-bind
@@ -597,8 +597,7 @@
          (y-eval (nth 6 res)))
     (is = 7 (length res))
     (is #'eq x (source-reference-parent x-eval))
-    (is #'eq y (source-reference-parent y-eval))
-    ))
+    (is #'eq y (source-reference-parent y-eval))))
 
 (defparameter *filepath2*
   "/home/fv/Code/CL/hunchentoot/session.lisp")
