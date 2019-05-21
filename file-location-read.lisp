@@ -29,6 +29,15 @@
                     :accessor source-location-source-filepath
                     :documentation "The filename of the source file.")))
 
+(defun default-source-location ()
+  "Creates a default source-location."
+  (make-instance 'source-location
+                 :start-line nil
+                 :end-line nil
+                 :start nil
+                 :end nil
+                 :source-filepath nil))
+
 (defun calculate-line-breaks (is)
   "Calculates the file positions in IS where line breaks occur."
   (let ((cur-position (file-position is))
@@ -187,8 +196,9 @@
              ;'() (mapcar #'find-class '(cst-source-position t)))
 ;(remove-method #'eclector.reader:check-feature-expression *)
 
-;;TODO cleanup the filepaht thing in the two functions below
+(defparameter *current-client* nil)
 
+;;TODO cleanup the filepath thing in the two functions below
 (defun read-program (is &optional (filepath nil))
   "Reads a source-file from the stream IS. Assumes all dependent packages have
    been loaded."
@@ -199,9 +209,10 @@
                            (create-file-position-to-file-location-function is)
                            :current-package *package*
                            :current-file filepath)))
-     (loop for exp = (eclector.parse-result:read client is nil eof)
-           until (equal exp eof)
-           collect exp))))
+      (setf *current-client* client)
+      (loop for exp = (eclector.parse-result:read client is nil eof)
+            until (equal exp eof)
+            collect exp))))
 
 (defun parse-from-file (filepath &optional (relative-filepath nil))
   "Parses a whole file into a list of expressions."

@@ -39,6 +39,10 @@
         ;(set-source-reference instance instance))
     instance))
 
+(defun filter-source-references (srfs)
+  (remove-if #'(lambda (srf) (null (source-location-source-filepath srf)))
+             srfs))
+
 (defun dummy-source-reference (symbol)
   (make-instance 'source-reference
                  :parent nil

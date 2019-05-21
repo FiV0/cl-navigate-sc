@@ -77,8 +77,8 @@
 
 (defparameter +special-like-function+
   (list 'if 'function 'go 'load-time-value 'locally 'multiple-value-call
-        'multiple-value-prog1 'mulitple-value-prog1 'progn 'return-from 'setq
-        'the 'throw 'unwind-protect))
+        'multiple-value-prog1 'progn 'return-from 'setq 'the 'throw
+        'unwind-protect))
 
 (defun process-special-cst (cst env)
   "Process a special symbol operator."
@@ -156,6 +156,14 @@ WITH-INPUT-FROM-STRING WITH-OPEN-FILE WITH-OPEN-STREAM
 WITH-OUTPUT-TO-STRING WITH-PACKAGE-ITERATOR WITH-SIMPLE-RESTART WITH-SLOTS
 WITH-STANDARD-IO-SYNTAX
 
+Everything macro related
+DEFINE-MODIFY-MACRO
+DEFINE-SETF-EXPANDER
+DEFINE-SYMBOL-MACRO
+DEFSETF
+
+A bit like DEFCLASS
+DEFSTRUCT
 |#
 
 ;;TODO
@@ -192,6 +200,10 @@ WITH-STANDARD-IO-SYNTAX
            (process-cond cst env))
           ((eq raw 'defpackage)
            (process-defpackage cst env))
+          ((eq raw 'multiple-value-bind)
+           (step (process-multiple-value-bind cst env) ))
+          ;((and (macro-function raw) (not (standard-symbol-p raw)))
+           ;(process-macro-call cst env))
           ;;TODO
           (T (progn
                (format *standard-output* "WARNING: ~a is not yet implemented!~%"
@@ -270,6 +282,17 @@ WITH-STANDARD-IO-SYNTAX
              (cons (append (car refs-env) refs) new-env))))
     (let ((res (reduce #'helper csts :initial-value (cons '() env))))
       (values (car res) (cdr res)))))
+
+;; macro call
+(defun process-macro-call (cst env)
+  "Process a macro call definition."
+  (mvlet* ((macro (cst:first cst))
+           (srefs1 (parse-atom macro env))
+           (exp-expanded (macroexpand* (cst:raw cst)))
+           (new-cst (cst:reconstruct exp-expanded cst *current-client*
+                                     :default-source (default-source-location)))
+           (srefs2 (parse-cst new-cst env)))
+    (values (append srefs1 srefs2) env)))
 
 ;; defmacro
 (defun process-standard-def (cst env &optional (parse-lambda-list-fn
@@ -529,6 +552,19 @@ WITH-STANDARD-IO-SYNTAX
         (multiple-value-bind (refs3 env3) (parse-csts forms env2)
           (declare (ignore env3))
           (values (append refs1 refs2 refs3) env))))))
+
+;; multiple-value-bind
+(defun process-multiple-value-bind (cst env)
+  (mvlet* ((mvb (cst:first cst))
+           (srefs1 (parse-atom mvb env))
+           (bindings (cst:second cst))
+           ((srefs2 env2) (add-symbols-to-env (cst-to-list bindings)
+                                              (copy-environment env)))
+           (mv-form (cst:third cst))
+           (srefs3 (parse-cst mv-form (copy-environment env)))
+           (body (resti cst 3))
+           (srefs4 (parse-csts (cst-to-list body) env2 T)))
+    (values (append srefs1 srefs2 srefs3 srefs4) env)))
 
 ;;; let bindings
 
